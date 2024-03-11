@@ -1,22 +1,22 @@
 # Tello-Deck
 
-Make your Steam Deck as a controller for DJI Tello drone.
+Transform your Steam Deck into a controller for the DJI Tello drone.
 
-This project uses:
-* GTK-3 for the application GUI.
-* GStreamer framework with plug-ins for displaying video output and data from the drone.
-* ffmpeg to record and save the video output into a file.
+This project incorporates:
+* GTK-3 for the GUI.
+* GStreamer framework and plug-ins for video and data streaming.
+* ffmpeg for recording and saving video.
 
-Big shout out to Suphi and his project https://gitlab.com/Suphi/Tello as it was largely used as basis for this app.
+Special thanks to Suphi and his project (https://gitlab.com/Suphi/Tello) for providing the foundation for this app.
 
 ## Controls
 
-- <kbd>☰</kbd> = Takeoff/Land
-- <kbd>⧉</kbd> = Start/Stop Recording Camera
-- <kbd>Ⓐ</kbd> = High/Low speed mode
-- <kbd>Ⓑ</kbd> = Camera Mode
-- <kbd>Ⓧ</kbd> = None
-- <kbd>Ⓨ</kbd> = Scan for Gamepad
+- <kbd>☰</kbd>: Takeoff/Land
+- <kbd>⧉</kbd>: Start/Stop Recording
+- <kbd>Ⓐ</kbd>: Toggle Speed Mode
+- <kbd>Ⓑ</kbd>: Camera Mode
+- <kbd>Ⓧ</kbd>: Not Assigned
+- <kbd>Ⓨ</kbd>: Scan for Gamepad
 ![](ScreenShot.jpg)
 
 ## Installation
@@ -34,11 +34,11 @@ make uninstall
 ```
 
 ### Running in Gaming Mode
-If you want to run the app in Gaming Mode mode go to `/usr/local/bin/` (or the folder where the app is installed) in Dolphin, select `tello` executable, right click on the file and select "Add to Steam" menu item.
+To run in Gaming Mode, navigate to /usr/local/bin/ (or installation directory) in Dolphin, right-click the tello executable, and select "Add to Steam".
 
 ## Building on SteamDeck
 ### Disable read-only mode
-By default SteamDeck's root file system is read-only so after you create root credentials you have to disable it by running
+By default SteamDeck's root file system is read-only so after you create root credentials you have to disable it:
 ```bash
 sudo steamos-readonly disable
 ```
@@ -47,12 +47,13 @@ or
 sudo btrfs property set -ts / ro false
 ```
 ### Installing development tools
-Then you have to install `gcc` and `pkg-config`.
+Install `gcc` and `pkg-config`:
 ```bash
 sudo pacman -S gcc pkg-config
 ```
 
 ### Install dependencies and libraries
+Install essential libraries and dependencies for development:
 Install `linux-headers`
 ```bash
 sudo pacman -S glibc linux-api-headers
