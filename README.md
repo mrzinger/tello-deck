@@ -17,11 +17,9 @@ Big shout out to Suphi and his project https://gitlab.com/Suphi/Tello as it was 
 - <kbd>Ⓑ</kbd> = Camera Mode
 - <kbd>Ⓧ</kbd> = None
 - <kbd>Ⓨ</kbd> = Scan for Gamepad
-
-
 ![](ScreenShot.jpg)
-***
-### Installation
+
+## Installation
 ```bash
 make install
 ```
@@ -29,7 +27,7 @@ tello is installed into /usr/local by default this can be changed by setting DES
 ```bash 
 make DESTDIR=/usr install
 ```
-***
+
 ### Removal
 ```bash
 make uninstall
@@ -37,10 +35,8 @@ make uninstall
 
 ### Running in Gaming Mode
 If you want to run the app in Gaming Mode mode go to `/usr/local/bin/` (or the folder where the app is installed) in Dolphin, select `tello` executable, right click on the file and select "Add to Steam" menu item.
-***
 
 ## Building on SteamDeck
-***
 ### Disable read-only mode
 By default SteamDeck's root file system is read-only so after you create root credentials you have to disable it by running
 ```bash
@@ -78,5 +74,3 @@ To support network management capabilities and be able to automatically join Tel
 ```bash
 sudo pacman -S libnm glib2
 ```
-
-***
