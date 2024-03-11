@@ -1,0 +1,19 @@
+{
+    "C_Cpp.errorSquiggles": "disabled",
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/deck/src/Tello",
+            "binaryPath": "/home/deck/src/Tello/tello",
+            "binaryArgs": []
+        }
+    ],
+    "files.associations": {
+        "tello_cmd.h": "c",
+        "typeinfo": "c",
+        "stdlib.h": "c",
+        "map.h": "c",
+        "type_traits": "c",
+        "video_out.h": "c",
+        "tello.h": "c"
+    }
+}
