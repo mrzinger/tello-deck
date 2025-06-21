@@ -232,7 +232,7 @@ int update_gui(void *ptr)
 			if(wifi_strength != tello.wifi_strength) {
 				wifi_strength = tello.wifi_strength;
 				sprintf(label, "%d%%", wifi_strength);
-				set_label (WIFI_LBL, &label);
+				set_label (WIFI_LBL, label);
 			}
 			break;
 		}
