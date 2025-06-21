@@ -1,6 +1,6 @@
 DESTDIR = /usr/local
 MODE = 755
-CC = g++
+CC = gcc
 CFLAGS = -Wall `pkg-config --cflags gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0`
 LIBS = -lm -lpthread `pkg-config --libs gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0 gdk-x11-3.0` 
 CFLAGS += -I/usr/lib/steamos/modules/6.0.2-arch1-1.1/build/include/uapi/
