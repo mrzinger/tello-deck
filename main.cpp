@@ -218,9 +218,9 @@ void button_callback(GtkWidget *widget, void *ptr)
 
 void toggle_button(GtkWidget *widget, int value)
 {
-	g_signal_handlers_block_by_func(widget, G_CALLBACK(button_callback), NULL);              
+    g_signal_handlers_block_by_func(widget, (gpointer)button_callback, NULL);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), value);
-	g_signal_handlers_unblock_by_func(widget, G_CALLBACK(button_callback), NULL);
+    g_signal_handlers_unblock_by_func(widget, (gpointer)button_callback, NULL);
 }
 
 int update_gui(void *ptr)

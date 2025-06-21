@@ -1,6 +1,6 @@
 DESTDIR = /usr/local
 MODE = 755
-CC = gcc
+CC = g++
 CFLAGS = -Wall `pkg-config --cflags gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0`
 LIBS = -lm -lpthread `pkg-config --libs gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0 gdk-x11-3.0` 
 CFLAGS += -I/usr/lib/steamos/modules/6.0.2-arch1-1.1/build/include/uapi/
@@ -18,12 +18,11 @@ CFLAGS += -I/usr/include/libusb-1.0/
 CFLAGS += -I/usr/include/atk-1.0/
 
 
-all: main.c tello.c
-	$(CC) -O2 $(CFLAGS) main.c tello.c video_out.c -o tello $(LIBS)
+all: main.cpp tello.cpp
+	$(CC) -O2 $(CFLAGS) main.cpp tello.cpp video_out.cpp -o tello $(LIBS)
 
-debug: main.c tello.c
-	$(CC) -g $(CFLAGS) main.c tello.c video_out.c -o tello $(LIBS)
-	
+debug: main.cpp tello.cpp
+	$(CC) -g $(CFLAGS) main.cpp tello.cpp video_out.cpp -o tello $(LIBS)
 clean:
 	rm -f tello
 

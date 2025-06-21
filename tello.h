@@ -9,8 +9,8 @@ struct tello {
 	int data_socket;
 	int camera_socket;
 	struct sockaddr_in address;
-	void (*data_callback)();
-	void (*camera_callback)();
+       void (*data_callback)(int);
+       void (*camera_callback)(uint8_t *, int);
 	uint16_t sequence;
 	uint8_t speed_mode;
 	float left_x;
