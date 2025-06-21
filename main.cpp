@@ -9,6 +9,7 @@
 #include "video_out.h"
 
 Tello tello;
+VideoOut video_out;
 
 typedef enum {
   CAMERA_VIDEO_BUTTON,
@@ -232,7 +233,7 @@ int update_gui(void *ptr)
 			if(wifi_strength != tello.wifi_strength) {
 				wifi_strength = tello.wifi_strength;
 				sprintf(label, "%d%%", wifi_strength);
-				set_label (WIFI_LBL, label);
+                                video_out.set_label(WIFI_LBL, label);
 			}
 			break;
 		}
@@ -244,12 +245,12 @@ int update_gui(void *ptr)
 			if(battery_percentage != tello.battery_percentage) {
 				battery_percentage = tello.battery_percentage;
 				sprintf(label, "%d%%", battery_percentage);
-				set_label (BAT_LBL, label);
+                                video_out.set_label(BAT_LBL, label);
 			}
 			if(height != tello.height) {
 				height = tello.height;
 				sprintf(label, "%.1fm", height/10.0);
-				set_label (ALT_LBL, label);
+                                video_out.set_label(ALT_LBL, label);
 			}
 			int new_fly_speed = sqrt(tello.north_speed*tello.north_speed + tello.east_speed*tello.east_speed);
 			if(fly_speed != new_fly_speed || fly_time != tello.fly_time) {
@@ -324,10 +325,10 @@ void *connection_thread(void *ptr)
 	camera_address2.sin_port = htons(11112);
 	inet_pton(AF_INET, "0.0.0.0", &(camera_address2.sin_addr));
 
-	tello.data_callback = &tello_data_callback;
-	tello.camera_callback = &tello_camera_callback;
-	start_video();
-	return NULL;
+        tello.data_callback = &tello_data_callback;
+        tello.camera_callback = &tello_camera_callback;
+        video_out.start_video();
+        return NULL;
 }
 
 void create_button(char *icon, GtkWidget *container, int toggle)
@@ -364,7 +365,7 @@ void on_activate(GtkApplication *app)
     gtk_widget_set_hexpand(video_screen, TRUE);
     gtk_box_pack_start(GTK_BOX(vbox), video_screen, TRUE, TRUE, 0);
 
-	init_video_screen (video_screen);
+        video_out.init_video_screen(video_screen);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_box_set_homogeneous(GTK_BOX(box), TRUE);
