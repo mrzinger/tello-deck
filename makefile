@@ -18,12 +18,12 @@ CFLAGS += -I/usr/include/libusb-1.0/
 CFLAGS += -I/usr/include/atk-1.0/
 
 
-all: main.cpp tello.cpp video_out.cpp
-	$(CC) -O2 $(CFLAGS) $(LIBS) main.cpp tello.cpp video_out.cpp -o tello
+all: main.c tello.c
+	$(CC) -O2 $(CFLAGS) $(LIBS) main.c tello.c video_out.c -o tello
 
-debug: main.cpp tello.cpp video_out.cpp
-	$(CC) -g $(CFLAGS) $(LIBS) main.cpp tello.cpp video_out.cpp -o tello
-
+debug: main.c tello.c
+	$(CC) -g $(CFLAGS) $(LIBS) main.c tello.c video_out.c -o tello
+	
 clean:
 	rm -f tello
 
