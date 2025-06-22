@@ -19,10 +19,10 @@ CFLAGS += -I/usr/include/atk-1.0/
 
 
 all: main.cpp tello.cpp
-	$(CC) -O2 $(CFLAGS) main.cpp tello.cpp video_out.cpp -o tello $(LIBS)
+	$(CC) -O2 $(CFLAGS) main.cpp tello.cpp video_out.cpp crc_utils.cpp -o tello $(LIBS)
 
 debug: main.cpp tello.cpp
-	$(CC) -g $(CFLAGS) main.cpp tello.cpp video_out.cpp -o tello $(LIBS)
+	$(CC) -g $(CFLAGS) main.cpp tello.cpp video_out.cpp crc_utils.cpp -o tello $(LIBS)
 clean:
 	rm -f tello
 

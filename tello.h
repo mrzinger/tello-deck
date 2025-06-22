@@ -8,8 +8,8 @@
 
 class Tello {
 public:
-    int data_socket;
-    int camera_socket;
+    Socket data_socket;
+    Socket camera_socket;
     struct sockaddr_in address;
     void (*data_callback)(int);
     void (*camera_callback)(uint8_t *, int);
@@ -80,11 +80,9 @@ public:
     void land();
 
 private:
-    static void *poll_thread(void *ptr);
-    static void *data_thread(void *ptr);
-    static void *camera_thread(void *ptr);
-    static int crc_8(uint8_t message[], int length);
-    static int crc_16(uint8_t message[], int length);
+    static void poll_thread(Tello *tello);
+    static void data_thread(Tello *tello);
+    static void camera_thread(Tello *tello);
     void send_package(int type, int id, int sequence, int *data, int datasize);
 
 };

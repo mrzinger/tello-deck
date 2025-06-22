@@ -305,14 +305,14 @@ void tello_camera_callback(uint8_t *data, int size)
 
 void connection_thread()
 {
-        open_input();
+	open_input();
 
-        while (tello.connect(6038, 2) < 0) printf("Connection Failed\n");
+	while (tello.connect(6038, 2) < 0) printf("Connection Failed\n");
 	printf("Connected\n");
-	
 
-        camera_socket1.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
-        camera_socket2.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+
+	camera_socket1.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+	camera_socket2.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 
 	memset(&camera_address1, '0', sizeof(camera_address1));
 	camera_address1.sin_family = AF_INET;
@@ -324,13 +324,12 @@ void connection_thread()
 	camera_address2.sin_port = htons(11112);
 	inet_pton(AF_INET, "0.0.0.0", &(camera_address2.sin_addr));
 
-  tello.data_callback = &tello_data_callback;
-  tello.camera_callback = &tello_camera_callback;
-  video_out.start_video();
-  return NULL;
+	tello.data_callback = &tello_data_callback;
+	tello.camera_callback = &tello_camera_callback;
+	video_out.start_video();
 }
 
-void create_button(char *icon, GtkWidget *container, int toggle)
+void create_button(const char *icon, GtkWidget *container, int toggle)
 {
 	GtkWidget *button;
 	if (toggle == 0) {
