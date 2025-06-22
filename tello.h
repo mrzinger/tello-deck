@@ -68,7 +68,7 @@ public:
     float relative_velocity_x;
     float relative_velocity_y;
     float relative_velocity_z;
-    Tello() : data_socket(0), camera_socket(0), data_callback(nullptr),
+    Tello() : data_socket(), camera_socket(), data_callback(nullptr),
               camera_callback(nullptr), sequence(0), speed_mode(0),
               left_x(0), left_y(0), right_x(0), right_y(0) {}
 
