@@ -9,7 +9,8 @@
 #include <gst/gst.h>
 #include "video_out.h"
 
-struct tello tello;
+Tello tello;
+VideoOut video_out;
 
 typedef enum {
   CAMERA_VIDEO_BUTTON,
@@ -195,10 +196,10 @@ void button_callback(GtkWidget *widget, void *ptr)
 		}
 		return;
 	case 2:
-		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) == FALSE)
-			tello_camera_mode(&tello, 0);
-		else
-			tello_camera_mode(&tello, 1);
+                if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) == FALSE)
+                        tello.camera_mode(0);
+                else
+                        tello.camera_mode(1);
 		return;
 	case 3:
 		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) == FALSE)
@@ -207,10 +208,10 @@ void button_callback(GtkWidget *widget, void *ptr)
 			tello.speed_mode = 1;
 		return;
 	case 4:
-		if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) == FALSE)
-			tello_land(&tello);
-		else
-			tello_takeoff(&tello);
+                if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) == FALSE)
+                        tello.land();
+                else
+                        tello.takeoff();
 		return;
 	}
 }
@@ -231,7 +232,7 @@ int update_gui(void *ptr)
 			if(wifi_strength != tello.wifi_strength) {
 				wifi_strength = tello.wifi_strength;
 				sprintf(label, "%d%%", wifi_strength);
-				set_label (WIFI_LBL, label);
+                                video_out.set_label(WIFI_LBL, label);
 			}
 			break;
 		}
@@ -243,12 +244,12 @@ int update_gui(void *ptr)
 			if(battery_percentage != tello.battery_percentage) {
 				battery_percentage = tello.battery_percentage;
 				sprintf(label, "%d%%", battery_percentage);
-				set_label (BAT_LBL, label);
+                                video_out.set_label(BAT_LBL, label);
 			}
 			if(height != tello.height) {
 				height = tello.height;
 				sprintf(label, "%.1fm", height/10.0);
-				set_label (ALT_LBL, label);
+                                video_out.set_label(ALT_LBL, label);
 			}
 			int new_fly_speed = sqrt(tello.north_speed*tello.north_speed + tello.east_speed*tello.east_speed);
 			if(fly_speed != new_fly_speed || fly_time != tello.fly_time) {
@@ -297,16 +298,16 @@ void tello_data_callback(int id)
 void tello_camera_callback(uint8_t *data, int size)
 {
 	if ((data[0] % 32) == 0 && data[1] == 0) 
-		tello_request_iframe(&tello);
-        sendto(camera_socket1, &data[2], size-2, 0, (struct sockaddr *)&camera_address1, sizeof(camera_address1));
-        sendto(camera_socket2, &data[2], size-2, 0, (struct sockaddr *)&camera_address2, sizeof(camera_address2));
+    tello.request_iframe();
+	sendto(camera_socket1, &data[2], size-2, 0, (struct sockaddr *)&camera_address1, sizeof(camera_address1));
+	sendto(camera_socket2, &data[2], size-2, 0, (struct sockaddr *)&camera_address2, sizeof(camera_address2));
 }
 
 void connection_thread()
 {
         open_input();
 
-	while (tello_connect(&tello, 6038, 2) < 0) printf("Connection Failed\n");
+        while (tello.connect(6038, 2) < 0) printf("Connection Failed\n");
 	printf("Connected\n");
 	
 
@@ -323,9 +324,10 @@ void connection_thread()
 	camera_address2.sin_port = htons(11112);
 	inet_pton(AF_INET, "0.0.0.0", &(camera_address2.sin_addr));
 
-	tello.data_callback = &tello_data_callback;
-	tello.camera_callback = &tello_camera_callback;
-        start_video();
+  tello.data_callback = &tello_data_callback;
+  tello.camera_callback = &tello_camera_callback;
+  video_out.start_video();
+  return NULL;
 }
 
 void create_button(char *icon, GtkWidget *container, int toggle)
@@ -362,7 +364,7 @@ void on_activate(GtkApplication *app)
     gtk_widget_set_hexpand(video_screen, TRUE);
     gtk_box_pack_start(GTK_BOX(vbox), video_screen, TRUE, TRUE, 0);
 
-	init_video_screen (video_screen);
+        video_out.init_video_screen(video_screen);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_box_set_homogeneous(GTK_BOX(box), TRUE);
@@ -399,7 +401,7 @@ int main(int argc, char *argv[])
 	g_application_run(G_APPLICATION(app), argc, argv);
 	g_object_unref (app);
 
-	tello_disconnect(&tello);
+        tello.disconnect();
 	close_input();
 }
 

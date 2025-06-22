@@ -43,7 +43,7 @@ uint16_t table16[] = {
     0xf78f, 0xe606, 0xd49d, 0xc514, 0xb1ab, 0xa022, 0x92b9, 0x8330, 0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78,
 };
 
-int crc_8(uint8_t message[], int length)
+int Tello::crc_8(uint8_t message[], int length)
 {
 	int i = 0;
 	int crc = 0x77;
@@ -51,7 +51,7 @@ int crc_8(uint8_t message[], int length)
 	return crc;
 }
 
-int crc_16(uint8_t message[], int length)
+int Tello::crc_16(uint8_t message[], int length)
 {
 	int i = 0;
 	int crc = 0x3692;
@@ -59,7 +59,7 @@ int crc_16(uint8_t message[], int length)
 	return crc;
 }
 
-void send_package(struct tello * tello, int type, int id, int sequence, int* data, int datasize)
+void Tello::send_package(int type, int id, int sequence, int* data, int datasize)
 {
 	int packagesize = 11 + datasize;
 	uint8_t package[packagesize];
@@ -75,11 +75,13 @@ void send_package(struct tello * tello, int type, int id, int sequence, int* dat
 	for (int i = 0; i < datasize; i++) memcpy(&package[9+i], &data[i], 1);
 	int crc16 = crc_16(package, 9+datasize);
 	memcpy(&package[9+datasize], &crc16, 2);
-	sendto(tello->data_socket, package, packagesize, 0, (struct sockaddr *)&tello->address, sizeof(tello->address));
+        sendto(data_socket, package, packagesize, 0, (struct sockaddr *)&address, sizeof(address));
 }
 
-void poll_thread(struct tello *tello)
+
+void *Tello::poll_thread(void *ptr)
 {
+  Tello *tello = (Tello *)ptr;
 	while (tello->data_socket > 0) {
 		long a1 = tello->speed_mode;
 		long a2 = tello->left_x * 660 + 1024;
@@ -96,13 +98,14 @@ void poll_thread(struct tello *tello)
 			packedAxis >> 24 & 0xFF, packedAxis >> 32 & 0xFF, packedAxis >> 40 & 0xFF,
 			lt->tm_hour, lt->tm_min, lt->tm_sec, msec & 0xFF, msec >> 8 & 0xFF
 		};
-		send_package(tello, 96, SET_STICKS, 0, data, 11);
+                tello->send_package(96, SET_STICKS, 0, data, 11);
 		usleep(20000);
         }
 }
 
-void data_thread(struct tello *tello)
+void *Tello::data_thread(void *ptr)
 {
+  Tello *tello = (Tello *)ptr;
 	uint8_t package[1012];
 	while (tello->data_socket > 0) {
 		recv(tello->data_socket, package, 1012, 0);
@@ -139,7 +142,7 @@ void data_thread(struct tello *tello)
 					lt->tm_sec & 0xFF, lt->tm_sec >> 8 & 0xFF,
 					msec & 0xFF, msec >> 8 & 0xFF
 				};
-				send_package(tello, 80, SET_DATE_TIME, tello->sequence++, senddata, 12);
+                                tello->send_package(80, SET_DATE_TIME, tello->sequence++, senddata, 12);
 				continue;
 			}
 			case FLIGHT_STATUS: {
@@ -180,7 +183,7 @@ void data_thread(struct tello *tello)
 			}
 			case LOG_HEADER: {
 				int senddata[] = {0, package[9], package[10]};
-				send_package(tello, 80, LOG_HEADER, tello->sequence++, senddata, 3);
+                                tello->send_package(80, LOG_HEADER, tello->sequence++, senddata, 3);
 				continue;
 			}
 			case LOG_DATA: {
@@ -227,8 +230,10 @@ void data_thread(struct tello *tello)
         }
 }
 
-void camera_thread(struct tello *tello)
+
+void *Tello::camera_thread(void *ptr)
 {
+  Tello *tello = (Tello *)ptr;
 	uint8_t package[1460];
 	while (tello->camera_socket > 0) {
 		int size = recv(tello->camera_socket, package, 1460, 0);
@@ -236,19 +241,19 @@ void camera_thread(struct tello *tello)
         }
 }
 
-void tello_disconnect(struct tello* tello)
+void Tello::disconnect()
 {
-        tello->data_socket.close();
-        tello->camera_socket.close();
+  tello->data_socket.close();
+  tello->camera_socket.close();
 }
 
-int tello_connect(struct tello* tello, int camera_port, int timeout)
+int Tello::connect(int camera_port, int timeout)
 {
-        tello->data_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+  tello->data_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 
-	tello->address.sin_family = AF_INET;
-	tello->address.sin_port = htons(8889);
-	inet_pton(AF_INET, "192.168.10.1", &(tello->address.sin_addr));
+  address.sin_family = AF_INET;
+  address.sin_port = htons(8889);
+  inet_pton(AF_INET, "192.168.10.1", &(address.sin_addr));
 
 	char req_package[12];
 	memcpy(&req_package[0], "conn_req:", 9);
@@ -260,51 +265,54 @@ int tello_connect(struct tello* tello, int camera_port, int timeout)
 	memcpy(&ack_package[9], &camera_port, 2);
 	ack_package[11] = '\0';
 	
-	sendto(tello->data_socket, req_package, 11, 0, (struct sockaddr *)&tello->address, sizeof(tello->address));
+        sendto(data_socket, req_package, 11, 0, (struct sockaddr *)&address, sizeof(address));
 
 	struct timeval tv; tv.tv_sec = timeout; tv.tv_usec = 0;
-	setsockopt(tello->data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-	if (recv(tello->data_socket, req_package, 11, 0) < 0) {tello_disconnect(tello); return -1;}
-	if (strcmp(req_package, ack_package) != 0) {tello_disconnect(tello); return -1;}
+        if (recv(data_socket, req_package, 11, 0) < 0) { disconnect(); return -1; }
+        if (strcmp(req_package, ack_package) != 0) { disconnect(); return -1; }
 	
 	tv.tv_sec = 0; tv.tv_usec = 0;
-	setsockopt(tello->data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
         tello->camera_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+
 
 	struct sockaddr_in camera_address;
 	memset(&camera_address, '0', sizeof(camera_address));
 	camera_address.sin_family = AF_INET;
 	camera_address.sin_port = htons(camera_port);
 	camera_address.sin_addr.s_addr = htonl(INADDR_ANY);
-	bind(tello->camera_socket, (struct sockaddr*)&camera_address, sizeof(camera_address));
+  bind(camera_socket, (struct sockaddr*)&camera_address, sizeof(camera_address));
 
-        std::thread(poll_thread, tello).detach();
-        std::thread(data_thread, tello).detach();
-        std::thread(camera_thread, tello).detach();
+
+  std::thread(poll_thread, tello).detach();
+  std::thread(data_thread, tello).detach();
+  std::thread(camera_thread, tello).detach();
+
 	return 0;
 }
 
-void tello_request_iframe(struct tello* tello)
+void Tello::request_iframe()
 {
-	send_package(tello, 96, REQUEST_VIDEO_START, 0, NULL, 0);
+        send_package(96, REQUEST_VIDEO_START, 0, NULL, 0);
 }
 
-void tello_camera_mode(struct tello* tello, int value)
+void Tello::camera_mode(int value)
 {
-	int data[] = {value};
-	send_package(tello, 104, SET_VIDEO_ASPECT, tello->sequence++, data, 1);
+        int data[] = {value};
+        send_package(104, SET_VIDEO_ASPECT, sequence++, data, 1);
 }
 
-void tello_takeoff(struct tello* tello)
+void Tello::takeoff()
 {
-	send_package(tello, 104, TAKE_OFF, tello->sequence++, NULL, 0);
+        send_package(104, TAKE_OFF, sequence++, NULL, 0);
 }
 
-void tello_land(struct tello* tello)
+void Tello::land()
 {
-	int data[] = {0};
-	send_package(tello, 104, LAND, tello->sequence++, data, 1);
+        int data[] = {0};
+        send_package(104, LAND, sequence++, data, 1);
 }
 
