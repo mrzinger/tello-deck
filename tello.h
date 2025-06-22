@@ -3,7 +3,8 @@
 
 #include <stddef.h>
 #include <arpa/inet.h>
-#include <stdint.h>
+
+#include "socket_wrapper.h"
 
 class Tello {
 public:
@@ -67,7 +68,6 @@ public:
     float relative_velocity_x;
     float relative_velocity_y;
     float relative_velocity_z;
-
     Tello() : data_socket(0), camera_socket(0), data_callback(nullptr),
               camera_callback(nullptr), sequence(0), speed_mode(0),
               left_x(0), left_y(0), right_x(0), right_y(0) {}
@@ -86,6 +86,7 @@ private:
     static int crc_8(uint8_t message[], int length);
     static int crc_16(uint8_t message[], int length);
     void send_package(int type, int id, int sequence, int *data, int datasize);
+
 };
 
 #endif

@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <linux/input.h>
 #include <math.h>
+#include <thread>
 #include <gdk/gdkx.h>
 #include <gst/video/videooverlay.h>
 #include <gtk/gtk.h>
@@ -27,8 +28,8 @@ pid_t pid1 = 0;
 pid_t pid2 = 0;
 int button_amount = 0;
 int input_file = 0;
-int camera_socket1 = 0;
-int camera_socket2 = 0;
+Socket camera_socket1;
+Socket camera_socket2;
 struct sockaddr_in camera_address1;
 struct sockaddr_in camera_address2;
  
@@ -89,10 +90,10 @@ void input_abs(int code, int value)
 	}
 }
 
-void *input_thread(void *ptr)
+void input_thread()
 {
-	struct input_event event[8];
-	while (input_file > 0) {
+        struct input_event event[8];
+        while (input_file > 0) {
 		int count = read(input_file, &event, sizeof(event)) / sizeof(struct input_event);
 		for (int i = 0; i < count; i++) {
 			switch (event[i].type) {
@@ -100,8 +101,7 @@ void *input_thread(void *ptr)
 			case EV_ABS: input_abs(event[i].code, event[i].value); break;
 			}
 		}
-	}
-	return NULL;
+        }
 }
 
 int input_has(int fd, uint16_t type, uint16_t code)
@@ -134,8 +134,7 @@ int open_input()
 			ioctl(file, EVIOCGNAME(sizeof(name)), name);
 			printf("Input: %s\n", name);
 			input_file = file;
-			pthread_t thread;
-			pthread_create(&thread, NULL, input_thread, NULL);
+                        std::thread(input_thread).detach();
 			return 0;
 		}
 	  	close(file);
@@ -299,21 +298,21 @@ void tello_data_callback(int id)
 void tello_camera_callback(uint8_t *data, int size)
 {
 	if ((data[0] % 32) == 0 && data[1] == 0) 
-                tello.request_iframe();
+    tello.request_iframe();
 	sendto(camera_socket1, &data[2], size-2, 0, (struct sockaddr *)&camera_address1, sizeof(camera_address1));
 	sendto(camera_socket2, &data[2], size-2, 0, (struct sockaddr *)&camera_address2, sizeof(camera_address2));
 }
 
-void *connection_thread(void *ptr)
+void connection_thread()
 {
-	open_input();
+        open_input();
 
         while (tello.connect(6038, 2) < 0) printf("Connection Failed\n");
 	printf("Connected\n");
 	
 
-	camera_socket1 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	camera_socket2 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        camera_socket1.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+        camera_socket2.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 
 	memset(&camera_address1, '0', sizeof(camera_address1));
 	camera_address1.sin_family = AF_INET;
@@ -325,10 +324,10 @@ void *connection_thread(void *ptr)
 	camera_address2.sin_port = htons(11112);
 	inet_pton(AF_INET, "0.0.0.0", &(camera_address2.sin_addr));
 
-        tello.data_callback = &tello_data_callback;
-        tello.camera_callback = &tello_camera_callback;
-        video_out.start_video();
-        return NULL;
+  tello.data_callback = &tello_data_callback;
+  tello.camera_callback = &tello_camera_callback;
+  video_out.start_video();
+  return NULL;
 }
 
 void create_button(char *icon, GtkWidget *container, int toggle)
@@ -390,8 +389,7 @@ void on_activate(GtkApplication *app)
 
     gtk_widget_show_all(window);
 
-    pthread_t thread;
-    pthread_create(&thread, NULL, connection_thread, NULL);
+    std::thread(connection_thread).detach();
 }
 
 int main(int argc, char *argv[])
