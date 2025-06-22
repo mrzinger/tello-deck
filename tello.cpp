@@ -1,7 +1,6 @@
 #include "tello.h"
 #include "tello_cmd.h"
 #include "crc_utils.h"
-
 #include <unistd.h>
 #include <string.h>
 #include <thread>
@@ -54,6 +53,7 @@ void Tello::data_thread(Tello *tello)
 	uint8_t package[1012];
 	while (tello->data_socket > 0)
 	{
+		printf("Recieved data...\n");
 		recv(tello->data_socket, package, 1012, 0);
 		int size = (package[1] | package[2] << 8) / 8;
 		int crc8 = package[3];
@@ -217,7 +217,7 @@ void Tello::disconnect()
 
 int Tello::connect(int camera_port, int timeout)
 {
-	this->data_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+	data_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 
 	address.sin_family = AF_INET;
 	address.sin_port = htons(8889);
@@ -253,9 +253,9 @@ int Tello::connect(int camera_port, int timeout)
 
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
-	setsockopt(data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+	setsockopt(data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)); //Update timeout to 0 for non-blocking
 
-	this->camera_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+	camera_socket.reset(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 
 	struct sockaddr_in camera_address;
 	memset(&camera_address, '0', sizeof(camera_address));
