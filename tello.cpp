@@ -53,7 +53,6 @@ void Tello::data_thread(Tello *tello)
 	uint8_t package[1012];
 	while (tello->data_socket > 0)
 	{
-		printf("Recieved data...\n");
 		recv(tello->data_socket, package, 1012, 0);
 		int size = (package[1] | package[2] << 8) / 8;
 		int crc8 = package[3];
