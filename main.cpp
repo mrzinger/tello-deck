@@ -1,13 +1,14 @@
 #include "tello.h"
-#include <fcntl.h>
 #include <linux/input.h>
 #include <math.h>
 #include <thread>
+#include <unistd.h>
 #include <gdk/gdkx.h>
 #include <gst/video/videooverlay.h>
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 #include "video_out.h"
+#include "src/input_controller.h"
 
 Tello tello;
 VideoOut video_out;
@@ -27,7 +28,6 @@ GtkWidget *infolabel;
 pid_t pid1 = 0;
 pid_t pid2 = 0;
 int button_amount = 0;
-int input_file = 0;
 Socket camera_socket1;
 Socket camera_socket2;
 struct sockaddr_in camera_address1;
@@ -47,112 +47,46 @@ float targetDistance = 0;
 
 GstElement *wifi_label;
 
-void input_key(int code, int value)
+void handle_button(int code, int value)
 {
-	if (value != 1) return;
-	switch (code) {
-	case BTN_START:
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[4]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[4])));
-		return;
-	case BTN_SELECT:
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[1]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[1])));
-		return;
-	case BTN_A:
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[3]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[3])));
-		return;
-	case BTN_B:
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[2]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[2])));
-		return;
-	case BTN_X:
-		targetPosition_x = tello.position_x;
-		targetPosition_y = tello.position_y;
-		targetPosition_z = tello.position_z;
-		return;
-	case BTN_Y:
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[5]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[5])));
-		return;
-	}
-}
-
-void input_abs(int code, int value)
-{
-	float v = (value + 0.5) / 32767.5;
-	if (v > -0.2 && v < 0.2) v = 0;
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[5])) == TRUE) {
-		if (v == 0) return;
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[5]), FALSE);
-	}
-	switch (code) {
-		case ABS_X: tello.left_x = v; break;
-		case ABS_Y: tello.left_y = -v; break;
-		case ABS_RX: tello.right_x = v; break;
-		case ABS_RY: tello.right_y = -v; break;
-	}
-}
-
-void input_thread()
-{
-        struct input_event event[8];
-        while (input_file > 0) {
-		int count = read(input_file, &event, sizeof(event)) / sizeof(struct input_event);
-		for (int i = 0; i < count; i++) {
-			switch (event[i].type) {
-			case EV_KEY: input_key(event[i].code, event[i].value); break;
-			case EV_ABS: input_abs(event[i].code, event[i].value); break;
-			}
-		}
+        if (value != 1) return;
+        switch (code) {
+        case BTN_START:
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[4]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[4])));
+                return;
+        case BTN_SELECT:
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[1]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[1])));
+                return;
+        case BTN_A:
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[3]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[3])));
+                return;
+        case BTN_B:
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[2]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[2])));
+                return;
+        case BTN_X:
+                targetPosition_x = tello.position_x;
+                targetPosition_y = tello.position_y;
+                targetPosition_z = tello.position_z;
+                return;
+        case BTN_Y:
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[5]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[5])));
+                return;
         }
 }
 
-int input_has(int fd, uint16_t type, uint16_t code)
-{
-	size_t nchar = KEY_MAX/8 + 1;
-	unsigned char bits[nchar];
-	ioctl(fd, EVIOCGBIT(type, sizeof(bits)), &bits);
-	return bits[code/8] & (1 << (code % 8));
-}
-
-void close_input()
-{
-	if (input_file == 0) return;
-	close(input_file);
-	input_file = 0;
-}
-
-int open_input()
-{
-	close_input();
-	char path[32];
-	for (int i = 0; i < 32; i++) {
-		sprintf(path, "/dev/input/event%d", i);
-		if (access(path, F_OK) < 0) return -1;
-		int file = open(path, O_RDONLY);
-		if (file <= 0) continue;
-	  	if (input_has(file, EV_ABS, ABS_X) && input_has(file, EV_ABS, ABS_Y) &&
-		input_has(file, EV_ABS, ABS_RX) && input_has(file, EV_ABS, ABS_RY)) {
-			char name[256];
-			ioctl(file, EVIOCGNAME(sizeof(name)), name);
-			printf("Input: %s\n", name);
-			input_file = file;
-                        std::thread(input_thread).detach();
-			return 0;
-		}
-	  	close(file);
-  	}
-	return -1;
-}
+InputController input_controller(tello, handle_button);
 
 int key_callback(GtkWidget *widget, GdkEventKey *event, void *ptr)
 {
-	switch (event->keyval) {
-	case GDK_KEY_space:
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[4]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[4])));
-		return TRUE;
-	case GDK_KEY_Return:
-		open_input();
-		return TRUE;
-	}
-	return FALSE;
+        switch (event->keyval) {
+        case GDK_KEY_space:
+                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[4]), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[4])));
+                return TRUE;
+        case GDK_KEY_Return:
+                input_controller.open();
+                return TRUE;
+        }
+        return FALSE;
 }
 
 
@@ -305,7 +239,7 @@ void tello_camera_callback(uint8_t *data, int size)
 
 void connection_thread()
 {
-	open_input();
+        input_controller.open();
 
 	while (tello.connect(6038, 2) < 0) printf("Connection Failed\n");
 	printf("Connected\n");
@@ -401,6 +335,6 @@ int main(int argc, char *argv[])
 	g_object_unref (app);
 
         tello.disconnect();
-	close_input();
+        input_controller.close();
 }
 
