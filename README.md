@@ -60,7 +60,7 @@ sudo pacman -S glibc linux-api-headers
 ```
 Install `gstreamer` and the `plug-ins`
 ```bash
-sudo pacman -S gstreamer gst-plugins-base gst-plugins-base-lib gst-plugins-good gst-libav
+sudo pacman -S gstreamer gst-plugins-base gst-plugins-base-libs gst-plugins-good gst-libav
 ```
 Install libs needed for overlays
 ```bash
