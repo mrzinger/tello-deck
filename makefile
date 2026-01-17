@@ -2,7 +2,7 @@ DESTDIR = /usr/local
 MODE = 755
 CC = g++
 CFLAGS = -Wall `pkg-config --cflags gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0`
-LIBS = -lm -lpthread `pkg-config --libs gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0 gdk-x11-3.0` 
+LIBS = -lm -lpthread `pkg-config --libs gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0 gdk-x11-3.0`
 CFLAGS += -I/usr/lib/steamos/modules/6.0.2-arch1-1.1/build/include/uapi/
 CFLAGS += -I/usr/lib/steamos/modules/6.0.2-arch1-1.1/build/arch/x86/include/uapi/
 CFLAGS += -I/usr/include/gstreamer-1.0/
@@ -15,14 +15,15 @@ CFLAGS += -I/usr/include/cairo/
 CFLAGS += -I/usr/include/gdk-pixbuf-2.0/
 CFLAGS += -I/usr/include/libdrm/
 CFLAGS += -I/usr/include/libusb-1.0/
+CFLAGS += -I.
 CFLAGS += -I/usr/include/atk-1.0/
+CFLAGS += -Isrc
 
+all: main.cpp tello.cpp src/tello_app.cpp
+	$(CC) -O2 $(CFLAGS) main.cpp tello.cpp video_out.cpp crc_utils.cpp src/tello_app.cpp -o tello $(LIBS)
 
-all: main.cpp tello.cpp
-	$(CC) -O2 $(CFLAGS) main.cpp tello.cpp video_out.cpp crc_utils.cpp -o tello $(LIBS)
-
-debug: main.cpp tello.cpp
-	$(CC) -g $(CFLAGS) main.cpp tello.cpp video_out.cpp crc_utils.cpp -o tello $(LIBS)
+debug: main.cpp tello.cpp src/tello_app.cpp
+	$(CC) -g $(CFLAGS) main.cpp tello.cpp video_out.cpp crc_utils.cpp src/tello_app.cpp -o tello $(LIBS)
 clean:
 	rm -f tello
 
