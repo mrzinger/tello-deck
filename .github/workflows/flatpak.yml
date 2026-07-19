@@ -1,0 +1,59 @@
+name: Build Flatpak
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: io.github.mrzinger.TelloDeck.yml
+          bundle: io.github.mrzinger.TelloDeck.flatpak
+          cache-key: flatpak-builder-${{ github.sha }}
+          upload-artifact: false
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tello-deck-flatpak
+          path: io.github.mrzinger.TelloDeck.flatpak
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: flatpak
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Flatpak artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tello-deck-flatpak
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: io.github.mrzinger.TelloDeck.flatpak
+          generate_release_notes: true
+          draft: false
+          prerelease: false
