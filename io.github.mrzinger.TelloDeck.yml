@@ -7,16 +7,34 @@ command: tello
 finish-args:
   # The application receives control and video data from the drone over UDP.
   - --share=network
-  # GTK 3's X11 video overlay needs X11 and shared-memory access.
+  # Prefer native Wayland while retaining XWayland support for Gaming Mode.
   - --share=ipc
-  - --socket=x11
-  # Tello Deck currently reads the Steam Deck controller from /dev/input.
-  # This also grants the DRI device access needed for video output.
+  - --socket=wayland
+  - --socket=fallback-x11
+  # SDL reads Steam Input's virtual controller from the host input devices.
   - --device=all
   # Recordings are saved in the user's Videos directory.
   - --filesystem=xdg-videos
 
 modules:
+  - name: sdl2
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+      - --enable-shared
+      - --disable-audio
+      - --disable-video
+      - --disable-render
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /lib/cmake
+      - '*.la'
+    sources:
+      - type: git
+        url: https://github.com/libsdl-org/SDL.git
+        commit: 5d249570393f7a37e037abf22cd6012a4cc56a71
+
   # The app invokes the ffmpeg CLI when recording. Build a deliberately small
   # copy containing only the raw-H.264-to-MP4 stream-copy functionality used by
   # Tello Deck, instead of depending on packages installed on SteamOS.

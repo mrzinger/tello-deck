@@ -5,7 +5,7 @@ CXX ?= g++
 PKG_CONFIG ?= pkg-config
 
 APP_ID = io.github.mrzinger.TelloDeck
-PKGS = gtk+-3.0 gdk-x11-3.0 gstreamer-1.0 gstreamer-video-1.0
+PKGS = gtk+-3.0 gstreamer-1.0 sdl2
 SRCDIR := src
 BUILDDIR := build
 TARGET := tello

@@ -3,6 +3,7 @@
 
 #include "tello.h"
 #include "video_out.h"
+#include <SDL.h>
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 #include <sys/types.h>
@@ -31,10 +32,12 @@ private:
     VideoOut video_out;
     GtkWidget *buttons[MAX_BUTTONS];
     GtkWidget *infolabel;
+    GtkWidget *main_window;
     pid_t pid1;
     pid_t pid2;
     int button_amount;
-    int input_file;
+    SDL_GameController *controller;
+    guint controller_poll_source;
     Socket camera_socket1;
     Socket camera_socket2;
     struct sockaddr_in camera_address1;
@@ -52,13 +55,12 @@ private:
     float targetDirection[2];
     float targetDistance;
 
-    void input_key(int code, int value);
-    void input_abs(int code, int value);
-    void input_thread();
-    static void input_thread_entry(TelloApp *self);
-    int input_has(int fd, uint16_t type, uint16_t code);
-    void close_input();
-    int open_input();
+    void controller_button(SDL_GameControllerButton button);
+    void controller_axis(SDL_GameControllerAxis axis, Sint16 value);
+    void close_controller();
+    int open_controller(int device_index = -1);
+    gboolean poll_controller();
+    static gboolean poll_controller_static(gpointer ptr);
 
     static gboolean key_callback_static(GtkWidget *widget, GdkEventKey *event, gpointer ptr);
     gboolean key_callback(GtkWidget *widget, GdkEventKey *event);

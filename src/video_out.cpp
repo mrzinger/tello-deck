@@ -3,52 +3,21 @@
 
 const char *VideoOut::g_def_label[MAX_LBL] = {"📶Wifi:", "↑Alt:", "🔋Bat:"};
 
-VideoOut::VideoOut() : pipeline(NULL), video_window_handle(0) {
+VideoOut::VideoOut() : pipeline(NULL) {
     for (int i = 0; i < MAX_LBL; ++i) g_video_lbls[i] = NULL;
+}
+
+VideoOut::~VideoOut()
+{
+    if (pipeline == NULL) return;
+    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_object_unref(pipeline);
 }
 
 void VideoOut::start_video()
 {
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
-}
-
-GstBusSyncReply VideoOut::bus_sync_handler(GstBus *bus, GstMessage *message, gpointer user_data)
-{
-    VideoOut *self = static_cast<VideoOut*>(user_data);
-    if (!gst_is_video_overlay_prepare_window_handle_message(message))
-        return GST_BUS_PASS;
-
-    if (self->video_window_handle != 0)
-    {
-        GstVideoOverlay *overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message));
-        gst_video_overlay_set_window_handle(overlay, self->video_window_handle);
-    }
-    else
-    {
-        g_warning("Should have obtained video_window_handle by now!");
-    }
-
-    gst_message_unref(message);
-    return GST_BUS_DROP;
-}
-
-void VideoOut::realize_cb(GtkWidget *widget, gpointer data)
-{
-    VideoOut *self = static_cast<VideoOut*>(data);
-    GdkWindow *window = gtk_widget_get_window(widget);
-
-    if (!gdk_window_ensure_native(window))
-        g_error("Couldn't create native window needed for GstVideoOverlay");
-
-    self->video_window_handle = GDK_WINDOW_XID(window);
-}
-
-gboolean VideoOut::delete_event_cb(GtkWidget *widget, GdkEvent *event, gpointer data)
-{
-    VideoOut *self = static_cast<VideoOut*>(data);
-    gst_element_set_state(self->pipeline, GST_STATE_NULL);
-    gst_object_unref(self->pipeline);
-    return FALSE;
+    if (pipeline != NULL)
+        gst_element_set_state(pipeline, GST_STATE_PLAYING);
 }
 
 void VideoOut::gst_pad_link_elements(GstElement *element, GstPad *pad, gpointer data)
@@ -60,7 +29,7 @@ void VideoOut::gst_pad_link_elements(GstElement *element, GstPad *pad, gpointer 
     gst_object_unref(sinkpad);
 }
 
-void VideoOut::init_video_screen(GtkWidget *video_screen_parent)
+GtkWidget *VideoOut::init_video_screen()
 {
     gst_init(NULL, NULL);
 
@@ -68,16 +37,30 @@ void VideoOut::init_video_screen(GtkWidget *video_screen_parent)
     GstElement *decodebin = gst_element_factory_make("decodebin", "decodebin");
     GstElement *queue = gst_element_factory_make("queue", "queue");
     GstElement *videoconvert = gst_element_factory_make("videoconvert", "videoconvert");
-    GstElement *sink = gst_element_factory_make("ximagesink", "ximagesink");
+    GstElement *gtk_sink = gst_element_factory_make("gtkglsink", "gtkglsink");
+    GstElement *sink = gst_element_factory_make("glsinkbin", "glsinkbin");
+    GstElement *wifi_label = gst_element_factory_make("textoverlay", "textoverlay1");
+    GstElement *alt_label = gst_element_factory_make("textoverlay", "textoverlay2");
+    GstElement *bat_label = gst_element_factory_make("textoverlay", "textoverlay3");
+
+    if (!udpsrc || !decodebin || !queue || !videoconvert || !gtk_sink || !sink ||
+        !wifi_label || !alt_label || !bat_label) {
+        g_warning("Could not create the GStreamer video elements");
+        return gtk_label_new("Video output is unavailable");
+    }
+
+    GtkWidget *video_widget = NULL;
+    g_object_set(G_OBJECT(sink), "sink", gtk_sink, NULL);
+    g_object_get(G_OBJECT(gtk_sink), "widget", &video_widget, NULL);
+    if (video_widget == NULL) {
+        g_warning("Could not create the GTK video widget");
+        return gtk_label_new("Video output is unavailable");
+    }
 
     g_object_set(G_OBJECT(udpsrc), "uri", "udp://0.0.0.0:11111", NULL);
     g_object_set(G_OBJECT(queue), "max-size-buffers", 1, "max-size-time", 0,
                  "max-size-bytes", 0, "leaky", 2, NULL);
     g_object_set(G_OBJECT(sink), "sync", FALSE, NULL);
-
-    GstElement *wifi_label = gst_element_factory_make("textoverlay", "textoverlay1");
-    GstElement *alt_label = gst_element_factory_make("textoverlay", "textoverlay2");
-    GstElement *bat_label = gst_element_factory_make("textoverlay", "textoverlay3");
 
     const char *font = "Hack, 10";
     g_object_set(G_OBJECT(wifi_label), "name", "wifi_label", "font-desc", font,
@@ -99,27 +82,22 @@ void VideoOut::init_video_screen(GtkWidget *video_screen_parent)
     if (!gst_element_link(udpsrc, decodebin))
     {
         g_printerr("Failed to link udpsrc and decodebin.\n");
-        return;
+        return video_widget;
     }
 
     if (!gst_element_link_many(queue, videoconvert, wifi_label, alt_label, bat_label, sink, NULL))
     {
-        g_printerr("Failed to link queue, videoconvert, and autovideosink.\n");
-        return;
+        g_printerr("Failed to link the video processing pipeline.\n");
+        return video_widget;
     }
 
     g_signal_connect(decodebin, "pad-added", G_CALLBACK(VideoOut::gst_pad_link_elements), queue);
-
-    g_signal_connect(video_screen_parent, "realize", G_CALLBACK(VideoOut::realize_cb), this);
-    g_signal_connect(video_screen_parent, "delete-event", G_CALLBACK(VideoOut::delete_event_cb), this);
-
-    GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
-    gst_bus_set_sync_handler(bus, (GstBusSyncHandler)VideoOut::bus_sync_handler, this, NULL);
-    gst_object_unref(bus);
+    return video_widget;
 }
 
 void VideoOut::set_label(VideoLabels label_id, const char *text)
 {
+    if (g_video_lbls[label_id] == NULL) return;
     char label[64];
     sprintf(label, "%s %s", g_def_label[label_id], text);
     g_object_set(G_OBJECT(g_video_lbls[label_id]), "text", label, NULL);

@@ -5,6 +5,7 @@ Transform your Steam Deck into a controller for the DJI Tello drone.
 This project incorporates:
 * GTK-3 for the GUI.
 * GStreamer framework and plug-ins for video and data streaming.
+* SDL2 for Steam Input-compatible controller discovery and hot-plugging.
 * ffmpeg for recording and saving video.
 
 Special thanks to Suphi and his project (https://gitlab.com/Suphi/Tello) for providing the foundation for this app.
@@ -15,8 +16,9 @@ Special thanks to Suphi and his project (https://gitlab.com/Suphi/Tello) for pro
 - <kbd>⧉</kbd>: Start/Stop Recording
 - <kbd>Ⓐ</kbd>: Toggle Speed Mode
 - <kbd>Ⓑ</kbd>: Camera Mode
-- <kbd>Ⓧ</kbd>: Not Assigned
-- <kbd>Ⓨ</kbd>: Scan for Gamepad
+- <kbd>Ⓧ</kbd>: Save Return Position
+- <kbd>Ⓨ</kbd>: Toggle Return Mode
+- <kbd>F11</kbd>: Toggle Fullscreen
 ![](ScreenShot.jpg)
 
 ## Installation
@@ -32,7 +34,7 @@ make PREFIX=/usr install
 ## Flatpak on SteamOS
 
 Flatpak is the recommended installation method on SteamOS. The Flatpak contains
-the application and FFmpeg, while GTK, GStreamer, Cairo, Pango, HarfBuzz and
+the application, SDL2, and FFmpeg, while GTK, GStreamer, Cairo, Pango, HarfBuzz and
 GDK-Pixbuf are supplied by the pinned GNOME runtime. It does not require
 disabling SteamOS read-only mode or installing these libraries with `pacman`.
 
@@ -45,8 +47,9 @@ flatpak run io.github.mrzinger.TelloDeck
 ```
 
 The first command installs the required GNOME runtime automatically. Tello Deck
-needs network access for the drone's UDP connection, direct device access for
-the Steam Deck controls, and access to the Videos directory for recordings.
+needs network access for the drone's UDP connection, device access for SDL
+controller input, and access to the Videos directory for recordings. It uses
+native Wayland when available and falls back to XWayland.
 
 After installation, add the **Tello Deck** application to Steam as a non-Steam
 game to launch it from Gaming Mode.
@@ -70,9 +73,9 @@ or
 sudo btrfs property set -ts / ro false
 ```
 ### Installing development tools
-Install `gcc` and `pkg-config`:
+Install `gcc`, `pkg-config`, and SDL2:
 ```bash
-sudo pacman -S gcc pkg-config
+sudo pacman -S gcc pkg-config sdl2
 ```
 
 ### Install dependencies and libraries
@@ -89,9 +92,9 @@ Install libs needed for overlays
 ```bash
 sudo pacman -S cairo pango harfbuzz gdk-pixbuf2 
 ```
-Install X Window related libraries
+Install GTK 3 and its accessibility libraries
 ```bash
-sudo pacman -S xorgproto libx11 at-spi2-core 
+sudo pacman -S gtk3 at-spi2-core
 ```
 ### For further development
 To support network management capabilities and be able to automatically join Tello's Wi-fi network we will need `libnm` and `glib2`
