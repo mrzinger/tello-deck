@@ -1,6 +1,7 @@
 /tello
 /.flatpak-builder/
 /build-dir/
+/build/
 /flatpak-repo/
 repo/
 io.github.mrzinger.TelloDeck.flatpak
