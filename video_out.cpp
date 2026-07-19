@@ -68,10 +68,11 @@ void VideoOut::init_video_screen(GtkWidget *video_screen_parent)
     GstElement *decodebin = gst_element_factory_make("decodebin", "decodebin");
     GstElement *queue = gst_element_factory_make("queue", "queue");
     GstElement *videoconvert = gst_element_factory_make("videoconvert", "videoconvert");
-    GstElement *sink = gst_element_factory_make("autovideosink", "autovideosink");
+    GstElement *sink = gst_element_factory_make("ximagesink", "ximagesink");
 
     g_object_set(G_OBJECT(udpsrc), "uri", "udp://0.0.0.0:11111", NULL);
-    g_object_set(G_OBJECT(queue), "max-size-buffers", 1, "max-size-time", 0, "max-size-bytes", 0, NULL);
+    g_object_set(G_OBJECT(queue), "max-size-buffers", 1, "max-size-time", 0,
+                 "max-size-bytes", 0, "leaky", 2, NULL);
     g_object_set(G_OBJECT(sink), "sync", FALSE, NULL);
 
     GstElement *wifi_label = gst_element_factory_make("textoverlay", "textoverlay1");
