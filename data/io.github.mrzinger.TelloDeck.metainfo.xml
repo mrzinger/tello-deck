@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.mrzinger.TelloDeck</id>
+  <name>Tello Deck</name>
+  <summary>Control a DJI Tello drone from a Steam Deck</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Tello Deck turns a Steam Deck into a controller and video display for a
+      DJI Tello drone.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.mrzinger.TelloDeck.desktop</launchable>
+  <url type="homepage">https://github.com/mrzinger/tello-deck</url>
+  <content_rating type="oars-1.1" />
+</component>

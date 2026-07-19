@@ -1,1 +1,4 @@
-tello
+/tello
+/.flatpak-builder/
+/build-dir/
+/flatpak-repo/

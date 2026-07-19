@@ -23,10 +23,33 @@ Special thanks to Suphi and his project (https://gitlab.com/Suphi/Tello) for pro
 ```bash
 make install
 ```
-tello is installed into /usr/local by default this can be changed by setting DESTDIR.
+tello is installed into `/usr/local` by default. This can be changed by setting
+`PREFIX`.
 ```bash 
-make DESTDIR=/usr install
+make PREFIX=/usr install
 ```
+
+## Flatpak on SteamOS
+
+Flatpak is the recommended installation method on SteamOS. The Flatpak contains
+the application and FFmpeg, while GTK, GStreamer, Cairo, Pango, HarfBuzz and
+GDK-Pixbuf are supplied by the pinned GNOME runtime. It does not require
+disabling SteamOS read-only mode or installing these libraries with `pacman`.
+
+Build and install it from the repository in Desktop Mode:
+
+```bash
+flatpak-builder --user --install --force-clean \
+  --install-deps-from=flathub build-dir io.github.mrzinger.TelloDeck.yml
+flatpak run io.github.mrzinger.TelloDeck
+```
+
+The first command installs the required GNOME runtime automatically. Tello Deck
+needs network access for the drone's UDP connection, direct device access for
+the Steam Deck controls, and access to the Videos directory for recordings.
+
+After installation, add the **Tello Deck** application to Steam as a non-Steam
+game to launch it from Gaming Mode.
 
 ### Removal
 ```bash

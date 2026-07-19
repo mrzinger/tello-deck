@@ -180,12 +180,15 @@ void TelloApp::button_callback(GtkWidget *widget, long id)
             if (pid2 > 0) return;
             pid2 = fork();
             if(pid2 == 0) {
-                char *homedir = getenv("HOME");
                 struct timespec ts;
                 clock_gettime(CLOCK_REALTIME, &ts);
-                char path[64];
-                sprintf(path, "%s/tello%ld.mp4", homedir, ts.tv_sec);
+                char filename[64];
+                sprintf(filename, "tello%ld.mp4", ts.tv_sec);
+                const char *video_dir = g_get_user_special_dir(G_USER_DIRECTORY_VIDEOS);
+                if (video_dir == NULL) video_dir = g_get_home_dir();
+                char *path = g_build_filename(video_dir, filename, NULL);
                 execlp("ffmpeg", "ffmpeg", "-use_wallclock_as_timestamps", "1", "-framerate", "30", "-i", "udp://0.0.0.0:11112", "-c", "copy", path, NULL);
+                g_free(path);
                 exit(EXIT_SUCCESS);
             }
         }
@@ -417,7 +420,7 @@ int TelloApp::run(int argc, char *argv[])
     instance = this;
     tello.camera_callback = NULL;
     tello.data_callback = NULL;
-    GtkApplication *app = gtk_application_new("com.tello.GtkApplication", G_APPLICATION_DEFAULT_FLAGS);
+    GtkApplication *app = gtk_application_new("io.github.mrzinger.TelloDeck", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(TelloApp::on_activate_static), this);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
