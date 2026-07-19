@@ -1,6 +1,5 @@
 #include "video_out.h"
 #include <stdlib.h>
-#include <isl/map.h>
 
 const char *VideoOut::g_def_label[MAX_LBL] = {"📶Wifi:", "↑Alt:", "🔋Bat:"};
 

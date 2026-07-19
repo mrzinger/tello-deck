@@ -1,0 +1,54 @@
+id: io.github.mrzinger.TelloDeck
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: tello
+
+finish-args:
+  # The application receives control and video data from the drone over UDP.
+  - --share=network
+  # GTK 3's X11 video overlay needs X11 and shared-memory access.
+  - --share=ipc
+  - --socket=x11
+  # Tello Deck currently reads the Steam Deck controller from /dev/input.
+  # This also grants the DRI device access needed for video output.
+  - --device=all
+  # Recordings are saved in the user's Videos directory.
+  - --filesystem=xdg-videos
+
+modules:
+  # The app invokes the ffmpeg CLI when recording. Build a deliberately small
+  # copy containing only the raw-H.264-to-MP4 stream-copy functionality used by
+  # Tello Deck, instead of depending on packages installed on SteamOS.
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --disable-autodetect
+      - --disable-doc
+      - --disable-debug
+      - --disable-everything
+      - --enable-ffmpeg
+      - --enable-network
+      - --enable-protocol=file
+      - --enable-protocol=udp
+      - --enable-demuxer=h264
+      - --enable-muxer=mp4
+      - --enable-parser=h264
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - '*.a'
+      - '*.la'
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+        sha256: 464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c
+
+  - name: tello-deck
+    buildsystem: simple
+    build-commands:
+      - make
+      - make PREFIX=/app install
+    sources:
+      - type: dir
+        path: .

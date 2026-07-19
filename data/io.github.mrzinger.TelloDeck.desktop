@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tello Deck
+Comment=Control a DJI Tello drone from a Steam Deck
+Exec=tello
+Icon=io.github.mrzinger.TelloDeck
+Terminal=false
+Categories=Game;Utility;
+Keywords=drone;tello;controller;steam deck;
+StartupNotify=true
