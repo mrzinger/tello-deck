@@ -6,22 +6,43 @@ PKG_CONFIG ?= pkg-config
 
 APP_ID = io.github.mrzinger.TelloDeck
 PKGS = gtk+-3.0 gdk-x11-3.0 gstreamer-1.0 gstreamer-video-1.0
-SOURCES = main.cpp tello.cpp video_out.cpp crc_utils.cpp src/tello_app.cpp
+SRCDIR := src
+BUILDDIR := build
+TARGET := tello
 
-CPPFLAGS += -I. -Isrc $(shell $(PKG_CONFIG) --cflags $(PKGS))
+SOURCES := \
+	$(SRCDIR)/main.cpp \
+	$(SRCDIR)/tello.cpp \
+	$(SRCDIR)/video_out.cpp \
+	$(SRCDIR)/crc_utils.cpp \
+	$(SRCDIR)/tello_app.cpp
+
+OBJECTS := $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SOURCES))
+DEPS := $(OBJECTS:.o=.d)
+
+CPPFLAGS += -I$(SRCDIR) $(shell $(PKG_CONFIG) --cflags $(PKGS))
 CXXFLAGS ?= -O2
 CXXFLAGS += -Wall -pthread
 LDLIBS += -lm -pthread $(shell $(PKG_CONFIG) --libs $(PKGS))
 
-all: tello
+all: $(TARGET)
 
-tello: $(SOURCES)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(SOURCES) -o $@ $(LDFLAGS) $(LDLIBS)
+$(TARGET): $(OBJECTS)
+	$(CXX) $(OBJECTS) -o $@ $(LDFLAGS) $(LDLIBS)
+
+$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp | $(BUILDDIR)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILDDIR):
+	mkdir -p $@
 
 debug: CXXFLAGS := -O0 -g -Wall -pthread
-debug: clean tello
+debug: clean $(TARGET)
+
 clean:
-	rm -f tello
+	rm -rf $(BUILDDIR) $(TARGET)
+
+-include $(DEPS)
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/bin
