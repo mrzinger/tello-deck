@@ -2,10 +2,17 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
 {
 	"name": "C++",
-	"image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+	"image": "ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08",
 	"remoteUser": "root",
-    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder desktop-file-utils appstream && flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo && flatpak install -y flathub org.freedesktop.Sdk//24.08 org.freedesktop.Platform//24.08",
+    // "postCreateCommand": "sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder desktop-file-utils appstream && flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo && flatpak install -y flathub org.freedesktop.Sdk//24.08 org.freedesktop.Platform//24.08",
 	"runArgs": [
 		"--privileged"
-		]
+		],
+		"customizations": {
+			"vscode": {
+				"extensions": [
+					"openai.chatgpt"
+				]
+			}
+		}
 }
