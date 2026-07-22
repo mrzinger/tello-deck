@@ -72,6 +72,7 @@ GtkWidget *VideoOut::init_video_screen()
     GstElement *wifi_label = gst_element_factory_make("textoverlay", "textoverlay1");
     GstElement *alt_label = gst_element_factory_make("textoverlay", "textoverlay2");
     GstElement *bat_label = gst_element_factory_make("textoverlay", "textoverlay3");
+    GstElement *overlay_blend = gst_element_factory_make("identity", "overlay_blend");
 
     if (use_x11_sink)
         sink = gst_element_factory_make("ximagesink", "ximagesink");
@@ -82,7 +83,7 @@ GtkWidget *VideoOut::init_video_screen()
 
     if (!udpsrc || !decodebin || !queue || !videoconvert || !sink ||
         (!use_x11_sink && !gtk_sink) ||
-        !wifi_label || !alt_label || !bat_label) {
+        !wifi_label || !alt_label || !bat_label || !overlay_blend) {
         g_warning("Could not create the GStreamer video elements");
         return gtk_label_new("Video output is unavailable");
     }
@@ -105,6 +106,10 @@ GtkWidget *VideoOut::init_video_screen()
     g_object_set(G_OBJECT(queue), "max-size-buffers", 1, "max-size-time", 0,
                  "max-size-bytes", 0, "leaky", 2, NULL);
     g_object_set(G_OBJECT(sink), "sync", FALSE, NULL);
+    // GL sinks advertise GstVideoOverlayComposition support. Without an
+    // allocation barrier, chained textoverlay elements can replace each
+    // other's composition metadata instead of blending every label.
+    g_object_set(G_OBJECT(overlay_blend), "drop-allocation", TRUE, NULL);
     video_sink = sink;
 
     const char *font = "Hack, 10";
@@ -122,7 +127,7 @@ GtkWidget *VideoOut::init_video_screen()
     pipeline = gst_pipeline_new("pipeline");
 
     gst_bin_add_many(GST_BIN(pipeline), udpsrc, decodebin, queue, videoconvert,
-                     wifi_label, alt_label, bat_label, sink, NULL);
+                     bat_label, wifi_label, alt_label, overlay_blend, sink, NULL);
 
     if (!gst_element_link(udpsrc, decodebin))
     {
@@ -130,7 +135,8 @@ GtkWidget *VideoOut::init_video_screen()
         return video_widget;
     }
 
-    if (!gst_element_link_many(queue, videoconvert, wifi_label, alt_label, bat_label, sink, NULL))
+    if (!gst_element_link_many(queue, videoconvert, bat_label, wifi_label, alt_label,
+                               overlay_blend, sink, NULL))
     {
         g_printerr("Failed to link the video processing pipeline.\n");
         return video_widget;
