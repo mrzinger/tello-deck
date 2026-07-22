@@ -1,9 +1,10 @@
 #include "video_out.h"
+#include <gdk/gdkx.h>
 #include <stdlib.h>
 
 const char *VideoOut::g_def_label[MAX_LBL] = {"📶Wifi:", "↑Alt:", "🔋Bat:"};
 
-VideoOut::VideoOut() : pipeline(NULL) {
+VideoOut::VideoOut() : pipeline(NULL), video_sink(NULL) {
     for (int i = 0; i < MAX_LBL; ++i) g_video_lbls[i] = NULL;
 }
 
@@ -29,6 +30,34 @@ void VideoOut::gst_pad_link_elements(GstElement *element, GstPad *pad, gpointer 
     gst_object_unref(sinkpad);
 }
 
+GstBusSyncReply VideoOut::bus_sync_handler(GstBus *bus, GstMessage *message, gpointer data)
+{
+    VideoOut *self = static_cast<VideoOut*>(data);
+    if (!gst_is_video_overlay_prepare_window_handle_message(message))
+        return GST_BUS_PASS;
+
+    GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(g_object_get_data(
+        G_OBJECT(self->video_sink), "video-widget")));
+    if (window != NULL)
+        gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message)),
+                                            GDK_WINDOW_XID(window));
+
+    gst_message_unref(message);
+    return GST_BUS_DROP;
+}
+
+void VideoOut::realize_x11_video_widget(GtkWidget *widget, gpointer data)
+{
+    VideoOut *self = static_cast<VideoOut*>(data);
+    GdkWindow *window = gtk_widget_get_window(widget);
+    if (window == NULL || !gdk_window_ensure_native(window)) {
+        g_warning("Could not create a native X11 window for video output");
+        return;
+    }
+
+    g_object_set_data(G_OBJECT(self->video_sink), "video-widget", widget);
+}
+
 GtkWidget *VideoOut::init_video_screen()
 {
     gst_init(NULL, NULL);
@@ -37,21 +66,36 @@ GtkWidget *VideoOut::init_video_screen()
     GstElement *decodebin = gst_element_factory_make("decodebin", "decodebin");
     GstElement *queue = gst_element_factory_make("queue", "queue");
     GstElement *videoconvert = gst_element_factory_make("videoconvert", "videoconvert");
-    GstElement *gtk_sink = gst_element_factory_make("gtkglsink", "gtkglsink");
-    GstElement *sink = gst_element_factory_make("glsinkbin", "glsinkbin");
+    const gboolean use_x11_sink = GDK_IS_X11_DISPLAY(gdk_display_get_default());
+    GstElement *gtk_sink = NULL;
+    GstElement *sink = NULL;
     GstElement *wifi_label = gst_element_factory_make("textoverlay", "textoverlay1");
     GstElement *alt_label = gst_element_factory_make("textoverlay", "textoverlay2");
     GstElement *bat_label = gst_element_factory_make("textoverlay", "textoverlay3");
 
-    if (!udpsrc || !decodebin || !queue || !videoconvert || !gtk_sink || !sink ||
+    if (use_x11_sink)
+        sink = gst_element_factory_make("ximagesink", "ximagesink");
+    else {
+        gtk_sink = gst_element_factory_make("gtkglsink", "gtkglsink");
+        sink = gst_element_factory_make("glsinkbin", "glsinkbin");
+    }
+
+    if (!udpsrc || !decodebin || !queue || !videoconvert || !sink ||
+        (!use_x11_sink && !gtk_sink) ||
         !wifi_label || !alt_label || !bat_label) {
         g_warning("Could not create the GStreamer video elements");
         return gtk_label_new("Video output is unavailable");
     }
 
     GtkWidget *video_widget = NULL;
-    g_object_set(G_OBJECT(sink), "sink", gtk_sink, NULL);
-    g_object_get(G_OBJECT(gtk_sink), "widget", &video_widget, NULL);
+    if (use_x11_sink) {
+        video_widget = gtk_drawing_area_new();
+        g_signal_connect(video_widget, "realize",
+                         G_CALLBACK(VideoOut::realize_x11_video_widget), this);
+    } else {
+        g_object_set(G_OBJECT(sink), "sink", gtk_sink, NULL);
+        g_object_get(G_OBJECT(gtk_sink), "widget", &video_widget, NULL);
+    }
     if (video_widget == NULL) {
         g_warning("Could not create the GTK video widget");
         return gtk_label_new("Video output is unavailable");
@@ -61,6 +105,7 @@ GtkWidget *VideoOut::init_video_screen()
     g_object_set(G_OBJECT(queue), "max-size-buffers", 1, "max-size-time", 0,
                  "max-size-bytes", 0, "leaky", 2, NULL);
     g_object_set(G_OBJECT(sink), "sync", FALSE, NULL);
+    video_sink = sink;
 
     const char *font = "Hack, 10";
     g_object_set(G_OBJECT(wifi_label), "name", "wifi_label", "font-desc", font,
@@ -92,6 +137,11 @@ GtkWidget *VideoOut::init_video_screen()
     }
 
     g_signal_connect(decodebin, "pad-added", G_CALLBACK(VideoOut::gst_pad_link_elements), queue);
+    if (use_x11_sink) {
+        GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
+        gst_bus_set_sync_handler(bus, VideoOut::bus_sync_handler, this, NULL);
+        gst_object_unref(bus);
+    }
     return video_widget;
 }
 

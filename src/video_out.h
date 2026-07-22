@@ -2,6 +2,7 @@
 #define _VIDEO_OUT_H_
 
 #include <gst/gst.h>
+#include <gst/video/videooverlay.h>
 #include <gtk/gtk.h>
 
 typedef enum {
@@ -22,10 +23,13 @@ public:
 
 private:
     GstElement *pipeline;
+    GstElement *video_sink;
     GstElement *g_video_lbls[MAX_LBL];
     static const char *g_def_label[MAX_LBL];
 
     static void gst_pad_link_elements(GstElement *element, GstPad *pad, gpointer data);
+    static GstBusSyncReply bus_sync_handler(GstBus *bus, GstMessage *message, gpointer data);
+    static void realize_x11_video_widget(GtkWidget *widget, gpointer data);
 };
 
 #endif /* _VIDEO_OUT_H_ */
