@@ -363,9 +363,9 @@ void TelloApp::connection_thread_entry(TelloApp *self)
 
 void TelloApp::create_button(const char *icon, GtkWidget *container, int toggle)
 {
-    static const char *labels[MAX_BUTTONS] = {
-        "Video", "View · Record", "B · Camera", "A · Speed",
-        "Menu · Fly", "Y · Return"
+    static const char *descriptions[MAX_BUTTONS] = {
+        "Video", "Record", "Camera", "Speed",
+        "Take off or land", "Return"
     };
     GtkWidget *button;
     if (toggle == 0) {
@@ -377,9 +377,9 @@ void TelloApp::create_button(const char *icon, GtkWidget *container, int toggle)
         gtk_button_set_image(GTK_BUTTON(button), image);
         g_signal_connect(button, "toggled", G_CALLBACK(TelloApp::button_callback_static), (gpointer)(long)button_amount);
     }
-    gtk_button_set_label(GTK_BUTTON(button), labels[button_amount]);
-    gtk_button_set_always_show_image(GTK_BUTTON(button), TRUE);
-    gtk_widget_set_size_request(button, 112, 56);
+    gtk_widget_set_tooltip_text(button, descriptions[button_amount]);
+    atk_object_set_name(gtk_widget_get_accessible(button), descriptions[button_amount]);
+    gtk_widget_set_size_request(button, 56, 56);
     gtk_action_bar_pack_start(GTK_ACTION_BAR(container), button);
     buttons[button_amount] = button;
     button_amount++;
@@ -412,12 +412,12 @@ void TelloApp::on_activate(GtkApplication *app)
     GtkWidget *actionbar = gtk_action_bar_new();
     gtk_box_pack_start(GTK_BOX(vbox), actionbar, FALSE, TRUE, 0);
 
-    create_button("camera-video", actionbar, 1);
-    create_button("media-floppy", actionbar, 1);
-    create_button("video-display", actionbar, 1);
-    create_button("speedometer", actionbar, 1);
-    create_button("pan-up", actionbar, 1);
-    create_button("input-gaming", actionbar, 1);
+    create_button("camera-video-symbolic", actionbar, 1);
+    create_button("media-record-symbolic", actionbar, 1);
+    create_button("video-display-symbolic", actionbar, 1);
+    create_button("speedometer-symbolic", actionbar, 1);
+    create_button("pan-up-symbolic", actionbar, 1);
+    create_button("input-gaming-symbolic", actionbar, 1);
 
     infolabel = gtk_label_new("");
     gtk_action_bar_pack_end(GTK_ACTION_BAR(actionbar), infolabel);
