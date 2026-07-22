@@ -423,6 +423,7 @@ void TelloApp::on_activate(GtkApplication *app)
     gtk_action_bar_pack_end(GTK_ACTION_BAR(actionbar), infolabel);
 
     gtk_widget_show_all(window);
+    gtk_widget_hide(buttons[0]);
 
     if (g_getenv("SteamGameId") != nullptr || g_getenv("SteamAppId") != nullptr) {
         gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
