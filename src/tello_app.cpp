@@ -32,6 +32,9 @@ TelloApp::TelloApp()
 void TelloApp::load_settings()
 {
     overlay_font = "Hack, 10";
+    const char *default_recording_directory = g_get_user_special_dir(G_USER_DIRECTORY_VIDEOS);
+    if (default_recording_directory == NULL) default_recording_directory = g_get_home_dir();
+    recording_directory = default_recording_directory;
 
     char *path = g_build_filename(g_get_user_config_dir(), "tello-deck", "settings.ini", NULL);
     GKeyFile *settings = g_key_file_new();
@@ -40,6 +43,11 @@ void TelloApp::load_settings()
         char *font = g_key_file_get_string(settings, "overlays", "font", NULL);
         if (font != NULL && font[0] != '\0') overlay_font = font;
         g_free(font);
+        char *directory = g_key_file_get_string(settings, "recording", "directory", NULL);
+        if (directory != NULL && directory[0] != 0 &&
+            g_file_test(directory, G_FILE_TEST_IS_DIR))
+            recording_directory = directory;
+        g_free(directory);
     } else if (error != NULL &&
                !g_error_matches(error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
         g_warning("Could not load settings from %s: %s", path, error->message);
@@ -61,6 +69,7 @@ void TelloApp::save_settings() const
     char *path = g_build_filename(directory, "settings.ini", NULL);
     GKeyFile *settings = g_key_file_new();
     g_key_file_set_string(settings, "overlays", "font", overlay_font.c_str());
+    g_key_file_set_string(settings, "recording", "directory", recording_directory.c_str());
     gsize length = 0;
     GError *error = NULL;
     char *contents = g_key_file_to_data(settings, &length, &error);
@@ -247,14 +256,15 @@ void TelloApp::button_callback(GtkWidget *widget, long id)
             if(pid2 == 0) {
                 struct timespec ts;
                 clock_gettime(CLOCK_REALTIME, &ts);
-                char filename[64];
-                sprintf(filename, "tello%ld.mp4", ts.tv_sec);
-                const char *video_dir = g_get_user_special_dir(G_USER_DIRECTORY_VIDEOS);
-                if (video_dir == NULL) video_dir = g_get_home_dir();
-                char *path = g_build_filename(video_dir, filename, NULL);
-                execlp("ffmpeg", "ffmpeg", "-use_wallclock_as_timestamps", "1", "-framerate", "30", "-i", "udp://0.0.0.0:11112", "-c", "copy", path, NULL);
+                char filename[96];
+                snprintf(filename, sizeof(filename), "tello%ld.%09ld.mp4",
+                         ts.tv_sec, ts.tv_nsec);
+                char *path = g_build_filename(recording_directory.c_str(), filename, NULL);
+                execlp("ffmpeg", "ffmpeg", "-n", "-use_wallclock_as_timestamps", "1",
+                       "-framerate", "30", "-i", "udp://0.0.0.0:11112", "-c", "copy",
+                       path, NULL);
                 g_free(path);
-                exit(EXIT_SUCCESS);
+                exit(EXIT_FAILURE);
             }
         }
         return;
@@ -312,6 +322,20 @@ void TelloApp::font_changed(GtkFontButton *button)
     save_settings();
 }
 
+void TelloApp::recording_directory_changed_static(GtkFileChooserButton *button, gpointer ptr)
+{
+    static_cast<TelloApp*>(ptr)->recording_directory_changed(button);
+}
+
+void TelloApp::recording_directory_changed(GtkFileChooserButton *button)
+{
+    char *directory = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(button));
+    if (directory == NULL) return;
+    recording_directory = directory;
+    g_free(directory);
+    save_settings();
+}
+
 void TelloApp::settings_window_destroyed_static(GtkWidget *widget, gpointer ptr)
 {
     TelloApp *self = static_cast<TelloApp*>(ptr);
@@ -345,6 +369,19 @@ void TelloApp::show_settings()
     gtk_widget_set_hexpand(font_button, TRUE);
     g_signal_connect(font_button, "font-set", G_CALLBACK(TelloApp::font_changed_static), this);
     gtk_box_pack_start(GTK_BOX(content), font_button, FALSE, FALSE, 0);
+
+    GtkWidget *recording_label = gtk_label_new("Folder where video recordings are saved.");
+    gtk_label_set_xalign(GTK_LABEL(recording_label), 0);
+    gtk_box_pack_start(GTK_BOX(content), recording_label, FALSE, FALSE, 0);
+
+    GtkWidget *recording_directory_button = gtk_file_chooser_button_new(
+        "Recording location", GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+    gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(recording_directory_button),
+                                  recording_directory.c_str());
+    gtk_widget_set_hexpand(recording_directory_button, TRUE);
+    g_signal_connect(recording_directory_button, "file-set",
+                     G_CALLBACK(TelloApp::recording_directory_changed_static), this);
+    gtk_box_pack_start(GTK_BOX(content), recording_directory_button, FALSE, FALSE, 0);
 
     gtk_widget_show_all(window);
 }
