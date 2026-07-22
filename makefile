@@ -5,7 +5,7 @@ CXX ?= g++
 PKG_CONFIG ?= pkg-config
 
 APP_ID = io.github.mrzinger.TelloDeck
-PKGS = gtk+-3.0 gstreamer-1.0 sdl2
+PKGS = gtk+-3.0 gdk-x11-3.0 gstreamer-1.0 gstreamer-video-1.0 sdl2
 SRCDIR := src
 BUILDDIR := build
 TARGET := tello
@@ -26,6 +26,23 @@ CXXFLAGS += -Wall -pthread
 LDLIBS += -lm -pthread $(shell $(PKG_CONFIG) --libs $(PKGS))
 
 all: $(TARGET)
+
+# The devcontainer itself is the Freedesktop SDK, so this target builds against
+# the same headers and libraries used by the Flatpak manifest.
+sdk: all
+
+flatpak:
+	flatpak-builder --user --force-clean --disable-rofiles-fuse \
+		--install-deps-from=flathub \
+		build-dir io.github.mrzinger.TelloDeck.yml
+
+flatpak-install:
+	flatpak-builder --user --force-clean --disable-rofiles-fuse --install \
+		--install-deps-from=flathub \
+		build-dir io.github.mrzinger.TelloDeck.yml
+
+flatpak-run:
+	flatpak run $(APP_ID)
 
 $(TARGET): $(OBJECTS)
 	$(CXX) $(OBJECTS) -o $@ $(LDFLAGS) $(LDLIBS)
@@ -60,4 +77,4 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/share/metainfo/$(APP_ID).metainfo.xml
 	rm -f $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/$(APP_ID).svg
 
-.PHONY: all clean install uninstall
+.PHONY: all sdk flatpak flatpak-install flatpak-run clean install uninstall

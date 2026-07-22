@@ -1,0 +1,24 @@
+{
+	"name": "Tello Deck (Freedesktop 24.08 SDK)",
+	"image": "ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08",
+	"remoteUser": "root",
+	"runArgs": [
+		"--privileged"
+	],
+	"mounts": [
+		"source=${localWorkspaceFolderBasename}-flatpak,target=/var/lib/flatpak-user,type=volume"
+	],
+	"containerEnv": {
+		"FLATPAK_USER_DIR": "/var/lib/flatpak-user"
+	},
+	"postCreateCommand": ".devcontainer/post-create.sh",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.cpptools",
+				"ms-vscode.makefile-tools",
+				"openai.chatgpt"
+			]
+		}
+	}
+}
