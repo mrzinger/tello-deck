@@ -10,11 +10,12 @@
 #include <string.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include <glib/gstdio.h>
 
 TelloApp *TelloApp::instance = nullptr;
 
 TelloApp::TelloApp()
-    : infolabel(nullptr), main_window(nullptr), pid1(0), pid2(0),
+    : infolabel(nullptr), main_window(nullptr), settings_window(nullptr), pid1(0), pid2(0),
       button_amount(0), controller(nullptr), controller_poll_source(0),
       sky(0), battery_percentage(0), wifi_strength(0), height(0),
       fly_speed(0), fly_time(0), targetPosition_x(0), targetPosition_y(0),
@@ -24,6 +25,56 @@ TelloApp::TelloApp()
         buttons[i] = nullptr;
     targetDirection[0] = 0;
     targetDirection[1] = 1;
+    load_settings();
+}
+
+
+void TelloApp::load_settings()
+{
+    overlay_font = "Hack, 10";
+
+    char *path = g_build_filename(g_get_user_config_dir(), "tello-deck", "settings.ini", NULL);
+    GKeyFile *settings = g_key_file_new();
+    GError *error = NULL;
+    if (g_key_file_load_from_file(settings, path, G_KEY_FILE_NONE, &error)) {
+        char *font = g_key_file_get_string(settings, "overlays", "font", NULL);
+        if (font != NULL && font[0] != '\0') overlay_font = font;
+        g_free(font);
+    } else if (error != NULL &&
+               !g_error_matches(error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
+        g_warning("Could not load settings from %s: %s", path, error->message);
+    }
+    g_clear_error(&error);
+    g_key_file_unref(settings);
+    g_free(path);
+}
+
+void TelloApp::save_settings() const
+{
+    char *directory = g_build_filename(g_get_user_config_dir(), "tello-deck", NULL);
+    if (g_mkdir_with_parents(directory, 0700) != 0) {
+        g_warning("Could not create settings directory %s", directory);
+        g_free(directory);
+        return;
+    }
+
+    char *path = g_build_filename(directory, "settings.ini", NULL);
+    GKeyFile *settings = g_key_file_new();
+    g_key_file_set_string(settings, "overlays", "font", overlay_font.c_str());
+    gsize length = 0;
+    GError *error = NULL;
+    char *contents = g_key_file_to_data(settings, &length, &error);
+    if (contents != NULL) {
+        if (!g_file_set_contents(path, contents, length, &error))
+            g_warning("Could not save settings to %s: %s", path, error->message);
+        g_free(contents);
+    } else if (error != NULL) {
+        g_warning("Could not prepare settings for saving: %s", error->message);
+    }
+    g_clear_error(&error);
+    g_key_file_unref(settings);
+    g_free(path);
+    g_free(directory);
 }
 
 void TelloApp::controller_button(SDL_GameControllerButton button)
@@ -240,6 +291,64 @@ void TelloApp::toggle_button(GtkWidget *widget, int value)
     g_signal_handlers_unblock_by_func(widget, (gpointer)TelloApp::button_callback_static, NULL);
 }
 
+
+void TelloApp::settings_button_callback_static(GtkWidget *widget, gpointer ptr)
+{
+    static_cast<TelloApp*>(ptr)->show_settings();
+}
+
+void TelloApp::font_changed_static(GtkFontButton *button, gpointer ptr)
+{
+    static_cast<TelloApp*>(ptr)->font_changed(button);
+}
+
+void TelloApp::font_changed(GtkFontButton *button)
+{
+    char *font = gtk_font_chooser_get_font(GTK_FONT_CHOOSER(button));
+    if (font == NULL || font[0] == '\0') return;
+    overlay_font = font;
+    g_free(font);
+    video_out.set_font(overlay_font.c_str());
+    save_settings();
+}
+
+void TelloApp::settings_window_destroyed_static(GtkWidget *widget, gpointer ptr)
+{
+    TelloApp *self = static_cast<TelloApp*>(ptr);
+    if (self != NULL) self->settings_window = nullptr;
+}
+
+void TelloApp::show_settings()
+{
+    if (settings_window != nullptr) {
+        gtk_window_present(GTK_WINDOW(settings_window));
+        return;
+    }
+
+    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    settings_window = window;
+    gtk_window_set_title(GTK_WINDOW(window), "Settings");
+    gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main_window));
+    gtk_window_set_modal(GTK_WINDOW(window), TRUE);
+    g_signal_connect(window, "destroy", G_CALLBACK(TelloApp::settings_window_destroyed_static), this);
+
+    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_container_set_border_width(GTK_CONTAINER(content), 18);
+    gtk_container_add(GTK_CONTAINER(window), content);
+
+    GtkWidget *description = gtk_label_new("Font used for the altitude, battery, and Wi-Fi overlays.");
+    gtk_label_set_xalign(GTK_LABEL(description), 0);
+    gtk_box_pack_start(GTK_BOX(content), description, FALSE, FALSE, 0);
+
+    GtkWidget *font_button = gtk_font_button_new_with_font(overlay_font.c_str());
+    gtk_font_button_set_title(GTK_FONT_BUTTON(font_button), "Overlay font");
+    gtk_widget_set_hexpand(font_button, TRUE);
+    g_signal_connect(font_button, "font-set", G_CALLBACK(TelloApp::font_changed_static), this);
+    gtk_box_pack_start(GTK_BOX(content), font_button, FALSE, FALSE, 0);
+
+    gtk_widget_show_all(window);
+}
+
 gboolean TelloApp::update_gui(long id)
 {
     char label[64];
@@ -401,6 +510,7 @@ void TelloApp::on_activate(GtkApplication *app)
     gtk_widget_set_vexpand(video_screen, TRUE);
     gtk_widget_set_hexpand(video_screen, TRUE);
     gtk_box_pack_start(GTK_BOX(vbox), video_screen, TRUE, TRUE, 0);
+    video_out.set_font(overlay_font.c_str());
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_box_set_homogeneous(GTK_BOX(box), TRUE);
@@ -418,6 +528,11 @@ void TelloApp::on_activate(GtkApplication *app)
     create_button("speedometer-symbolic", actionbar, 1);
     create_button("pan-up-symbolic", actionbar, 1);
     create_button("input-gaming-symbolic", actionbar, 1);
+    GtkWidget *settings_button = gtk_button_new_from_icon_name("emblem-system-symbolic", GTK_ICON_SIZE_BUTTON);
+    gtk_widget_set_tooltip_text(settings_button, "Settings");
+    atk_object_set_name(gtk_widget_get_accessible(settings_button), "Settings");
+    g_signal_connect(settings_button, "clicked", G_CALLBACK(TelloApp::settings_button_callback_static), this);
+    gtk_action_bar_pack_end(GTK_ACTION_BAR(actionbar), settings_button);
 
     infolabel = gtk_label_new("");
     gtk_action_bar_pack_end(GTK_ACTION_BAR(actionbar), infolabel);

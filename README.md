@@ -21,6 +21,11 @@ Special thanks to Suphi and his project (https://gitlab.com/Suphi/Tello) for pro
 - <kbd>F11</kbd>: Toggle Fullscreen
 ![](ScreenShot.jpg)
 
+## Settings
+
+Use the settings button in the action bar to choose the font used by the altitude,
+battery, and Wi-Fi overlays. The choice is saved automatically for future launches.
+
 ## Installation
 ```bash
 make install
