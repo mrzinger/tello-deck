@@ -29,6 +29,32 @@ tello is installed into `/usr/local` by default. This can be changed by setting
 make PREFIX=/usr install
 ```
 
+## Development container
+
+Open the repository in its devcontainer and let the post-create step finish.
+The container is based on the Freedesktop 24.08 SDK used by the Flatpak
+manifest, and it installs the matching Platform and SDK into a persistent named
+volume.
+
+Build the application directly against the SDK:
+
+```bash
+make
+```
+
+Build the complete Flatpak in Flatpak's SDK sandbox:
+
+```bash
+make flatpak
+```
+
+To install and run the development build:
+
+```bash
+make flatpak-install
+make flatpak-run
+```
+
 ## Flatpak on SteamOS
 
 Flatpak is the recommended installation method on SteamOS. The Flatpak contains

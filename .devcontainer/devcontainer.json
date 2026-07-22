@@ -1,18 +1,24 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/cpp
 {
-	"name": "C++",
+	"name": "Tello Deck (Freedesktop 24.08 SDK)",
 	"image": "ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08",
 	"remoteUser": "root",
-    // "postCreateCommand": "sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder desktop-file-utils appstream && flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo && flatpak install -y flathub org.freedesktop.Sdk//24.08 org.freedesktop.Platform//24.08",
 	"runArgs": [
 		"--privileged"
-		],
-		"customizations": {
-			"vscode": {
-				"extensions": [
-					"openai.chatgpt"
-				]
-			}
+	],
+	"mounts": [
+		"source=${localWorkspaceFolderBasename}-flatpak,target=/var/lib/flatpak-user,type=volume"
+	],
+	"containerEnv": {
+		"FLATPAK_USER_DIR": "/var/lib/flatpak-user"
+	},
+	"postCreateCommand": ".devcontainer/post-create.sh",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.cpptools",
+				"ms-vscode.makefile-tools",
+				"openai.chatgpt"
+			]
 		}
+	}
 }
