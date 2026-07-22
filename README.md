@@ -24,7 +24,9 @@ Special thanks to Suphi and his project (https://gitlab.com/Suphi/Tello) for pro
 ## Settings
 
 Use the settings button in the action bar to choose the font used by the altitude,
-battery, and Wi-Fi overlays. The choice is saved automatically for future launches.
+battery, and Wi-Fi overlays, and the folder where recordings are saved. Settings
+are saved automatically for future launches. Recordings default to the user's
+Videos folder.
 
 ## Installation
 ```bash

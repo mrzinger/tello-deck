@@ -57,6 +57,7 @@ private:
     float targetDirection[2];
     float targetDistance;
     std::string overlay_font;
+    std::string recording_directory;
 
     void controller_button(SDL_GameControllerButton button);
     void controller_axis(SDL_GameControllerAxis axis, Sint16 value);
@@ -78,6 +79,8 @@ private:
     static void settings_button_callback_static(GtkWidget *widget, gpointer ptr);
     static void font_changed_static(GtkFontButton *button, gpointer ptr);
     void font_changed(GtkFontButton *button);
+    static void recording_directory_changed_static(GtkFileChooserButton *button, gpointer ptr);
+    void recording_directory_changed(GtkFileChooserButton *button);
     static void settings_window_destroyed_static(GtkWidget *widget, gpointer ptr);
 
     static gboolean update_gui_static(gpointer ptr);
