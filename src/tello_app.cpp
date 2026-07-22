@@ -1,13 +1,8 @@
 #include "tello_app.h"
-#include <fcntl.h>
-#include <linux/input.h>
 #include <math.h>
 #include <thread>
-#include <gdk/gdkx.h>
-#include <gst/video/videooverlay.h>
 #include <gtk/gtk.h>
 #include <gst/gst.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stdio.h>
@@ -19,7 +14,8 @@
 TelloApp *TelloApp::instance = nullptr;
 
 TelloApp::TelloApp()
-    : infolabel(nullptr), pid1(0), pid2(0), button_amount(0), input_file(0),
+    : infolabel(nullptr), main_window(nullptr), pid1(0), pid2(0),
+      button_amount(0), controller(nullptr), controller_poll_source(0),
       sky(0), battery_percentage(0), wifi_strength(0), height(0),
       fly_speed(0), fly_time(0), targetPosition_x(0), targetPosition_y(0),
       targetPosition_z(0), targetDistance(0)
@@ -30,39 +26,40 @@ TelloApp::TelloApp()
     targetDirection[1] = 1;
 }
 
-void TelloApp::input_key(int code, int value)
+void TelloApp::controller_button(SDL_GameControllerButton button)
 {
-    if (value != 1) return;
-    switch (code) {
-    case BTN_START:
+    switch (button) {
+    case SDL_CONTROLLER_BUTTON_START:
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[4]),
             !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[4])));
         return;
-    case BTN_SELECT:
+    case SDL_CONTROLLER_BUTTON_BACK:
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[1]),
             !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[1])));
         return;
-    case BTN_A:
+    case SDL_CONTROLLER_BUTTON_A:
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[3]),
             !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[3])));
         return;
-    case BTN_B:
+    case SDL_CONTROLLER_BUTTON_B:
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[2]),
             !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[2])));
         return;
-    case BTN_X:
+    case SDL_CONTROLLER_BUTTON_X:
         targetPosition_x = tello.position_x;
         targetPosition_y = tello.position_y;
         targetPosition_z = tello.position_z;
         return;
-    case BTN_Y:
+    case SDL_CONTROLLER_BUTTON_Y:
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[5]),
             !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[5])));
+        return;
+    default:
         return;
     }
 }
 
-void TelloApp::input_abs(int code, int value)
+void TelloApp::controller_axis(SDL_GameControllerAxis axis, Sint16 value)
 {
     float v = (value + 0.5) / 32767.5;
     if (v > -0.2 && v < 0.2) v = 0;
@@ -70,69 +67,79 @@ void TelloApp::input_abs(int code, int value)
         if (v == 0) return;
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(buttons[5]), FALSE);
     }
-    switch (code) {
-        case ABS_X: tello.left_x = v; break;
-        case ABS_Y: tello.left_y = -v; break;
-        case ABS_RX: tello.right_x = v; break;
-        case ABS_RY: tello.right_y = -v; break;
+    switch (axis) {
+        case SDL_CONTROLLER_AXIS_LEFTX: tello.left_x = v; break;
+        case SDL_CONTROLLER_AXIS_LEFTY: tello.left_y = -v; break;
+        case SDL_CONTROLLER_AXIS_RIGHTX: tello.right_x = v; break;
+        case SDL_CONTROLLER_AXIS_RIGHTY: tello.right_y = -v; break;
+        default: break;
     }
 }
 
-void TelloApp::input_thread()
+void TelloApp::close_controller()
 {
-    struct input_event event[8];
-    while (input_file > 0) {
-        int count = read(input_file, &event, sizeof(event)) / sizeof(struct input_event);
-        for (int i = 0; i < count; i++) {
-            switch (event[i].type) {
-            case EV_KEY: input_key(event[i].code, event[i].value); break;
-            case EV_ABS: input_abs(event[i].code, event[i].value); break;
-            }
-        }
-    }
+    if (controller == nullptr) return;
+    SDL_GameControllerClose(controller);
+    controller = nullptr;
 }
 
-void TelloApp::input_thread_entry(TelloApp *self)
+int TelloApp::open_controller(int device_index)
 {
-    self->input_thread();
-}
+    if (controller != nullptr && SDL_GameControllerGetAttached(controller))
+        return 0;
 
-int TelloApp::input_has(int fd, uint16_t type, uint16_t code)
-{
-    size_t nchar = KEY_MAX/8 + 1;
-    unsigned char bits[nchar];
-    ioctl(fd, EVIOCGBIT(type, sizeof(bits)), &bits);
-    return bits[code/8] & (1 << (code % 8));
-}
-
-void TelloApp::close_input()
-{
-    if (input_file == 0) return;
-    close(input_file);
-    input_file = 0;
-}
-
-int TelloApp::open_input()
-{
-    close_input();
-    char path[32];
-    for (int i = 0; i < 32; i++) {
-        sprintf(path, "/dev/input/event%d", i);
-        if (access(path, F_OK) < 0) return -1;
-        int file = open(path, O_RDONLY);
-        if (file <= 0) continue;
-        if (input_has(file, EV_ABS, ABS_X) && input_has(file, EV_ABS, ABS_Y) &&
-            input_has(file, EV_ABS, ABS_RX) && input_has(file, EV_ABS, ABS_RY)) {
-            char name[256];
-            ioctl(file, EVIOCGNAME(sizeof(name)), name);
-            printf("Input: %s\n", name);
-            input_file = file;
-            std::thread(&TelloApp::input_thread_entry, this).detach();
+    close_controller();
+    int first = device_index >= 0 ? device_index : 0;
+    int last = device_index >= 0 ? device_index + 1 : SDL_NumJoysticks();
+    for (int i = first; i < last; ++i) {
+        if (!SDL_IsGameController(i)) continue;
+        controller = SDL_GameControllerOpen(i);
+        if (controller != nullptr) {
+            printf("Controller: %s\n", SDL_GameControllerName(controller));
             return 0;
         }
-        close(file);
     }
+    fprintf(stderr, "No game controller found: %s\n", SDL_GetError());
     return -1;
+}
+
+gboolean TelloApp::poll_controller()
+{
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+        case SDL_CONTROLLERDEVICEADDED:
+            if (controller == nullptr) open_controller(event.cdevice.which);
+            break;
+        case SDL_CONTROLLERDEVICEREMOVED:
+            if (controller != nullptr &&
+                SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller)) ==
+                    event.cdevice.which) {
+                close_controller();
+                open_controller();
+            }
+            break;
+        case SDL_CONTROLLERBUTTONDOWN:
+            if (controller != nullptr &&
+                SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller)) ==
+                    event.cbutton.which)
+                controller_button(static_cast<SDL_GameControllerButton>(event.cbutton.button));
+            break;
+        case SDL_CONTROLLERAXISMOTION:
+            if (controller != nullptr &&
+                SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller)) ==
+                    event.caxis.which)
+                controller_axis(static_cast<SDL_GameControllerAxis>(event.caxis.axis),
+                                event.caxis.value);
+            break;
+        }
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+gboolean TelloApp::poll_controller_static(gpointer ptr)
+{
+    return static_cast<TelloApp*>(ptr)->poll_controller();
 }
 
 gboolean TelloApp::key_callback(GtkWidget *widget, GdkEventKey *event)
@@ -143,7 +150,14 @@ gboolean TelloApp::key_callback(GtkWidget *widget, GdkEventKey *event)
             !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(buttons[4])));
         return TRUE;
     case GDK_KEY_Return:
-        open_input();
+        open_controller();
+        return TRUE;
+    case GDK_KEY_F11:
+        if (gdk_window_get_state(gtk_widget_get_window(main_window)) &
+            GDK_WINDOW_STATE_FULLSCREEN)
+            gtk_window_unfullscreen(GTK_WINDOW(main_window));
+        else
+            gtk_window_fullscreen(GTK_WINDOW(main_window));
         return TRUE;
     }
     return FALSE;
@@ -321,8 +335,6 @@ void TelloApp::tello_camera_callback_static(uint8_t *data, int size)
 
 void TelloApp::connection_thread()
 {
-    open_input();
-
     while (tello.connect(6038, 2) < 0) printf("Connection Failed\n");
     printf("Connected\n");
 
@@ -351,6 +363,10 @@ void TelloApp::connection_thread_entry(TelloApp *self)
 
 void TelloApp::create_button(const char *icon, GtkWidget *container, int toggle)
 {
+    static const char *descriptions[MAX_BUTTONS] = {
+        "Video", "Record", "Camera", "Speed",
+        "Take off or land", "Return"
+    };
     GtkWidget *button;
     if (toggle == 0) {
         button = gtk_button_new_from_icon_name(icon, GTK_ICON_SIZE_BUTTON);
@@ -361,6 +377,9 @@ void TelloApp::create_button(const char *icon, GtkWidget *container, int toggle)
         gtk_button_set_image(GTK_BUTTON(button), image);
         g_signal_connect(button, "toggled", G_CALLBACK(TelloApp::button_callback_static), (gpointer)(long)button_amount);
     }
+    gtk_widget_set_tooltip_text(button, descriptions[button_amount]);
+    atk_object_set_name(gtk_widget_get_accessible(button), descriptions[button_amount]);
+    gtk_widget_set_size_request(button, 56, 56);
     gtk_action_bar_pack_start(GTK_ACTION_BAR(container), button);
     buttons[button_amount] = button;
     button_amount++;
@@ -369,20 +388,19 @@ void TelloApp::create_button(const char *icon, GtkWidget *container, int toggle)
 void TelloApp::on_activate(GtkApplication *app)
 {
     GtkWidget *window = gtk_application_window_new(app);
+    main_window = window;
     gtk_window_set_title(GTK_WINDOW(window), "Tello");
-    gtk_window_set_icon_name (GTK_WINDOW(window), "gpsd-logo");
+    gtk_window_set_icon_name(GTK_WINDOW(window), "io.github.mrzinger.TelloDeck");
     gtk_window_set_default_size(GTK_WINDOW(window), 1200, 800);
     g_signal_connect(window, "key_press_event", G_CALLBACK(TelloApp::key_callback_static), this);
 
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
-    GtkWidget *video_screen = gtk_drawing_area_new();
+    GtkWidget *video_screen = video_out.init_video_screen();
     gtk_widget_set_vexpand(video_screen, TRUE);
     gtk_widget_set_hexpand(video_screen, TRUE);
     gtk_box_pack_start(GTK_BOX(vbox), video_screen, TRUE, TRUE, 0);
-
-    video_out.init_video_screen(video_screen);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_box_set_homogeneous(GTK_BOX(box), TRUE);
@@ -394,17 +412,26 @@ void TelloApp::on_activate(GtkApplication *app)
     GtkWidget *actionbar = gtk_action_bar_new();
     gtk_box_pack_start(GTK_BOX(vbox), actionbar, FALSE, TRUE, 0);
 
-    create_button("camera-video", actionbar, 1);
-    create_button("media-floppy", actionbar, 1);
-    create_button("video-display", actionbar, 1);
-    create_button("speedometer", actionbar, 1);
-    create_button("pan-up", actionbar, 1);
-    create_button("input-gaming", actionbar, 1);
+    create_button("camera-video-symbolic", actionbar, 1);
+    create_button("media-record-symbolic", actionbar, 1);
+    create_button("video-display-symbolic", actionbar, 1);
+    create_button("speedometer-symbolic", actionbar, 1);
+    create_button("pan-up-symbolic", actionbar, 1);
+    create_button("input-gaming-symbolic", actionbar, 1);
 
     infolabel = gtk_label_new("");
     gtk_action_bar_pack_end(GTK_ACTION_BAR(actionbar), infolabel);
 
     gtk_widget_show_all(window);
+
+    if (g_getenv("SteamGameId") != nullptr || g_getenv("SteamAppId") != nullptr) {
+        gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
+        gtk_window_fullscreen(GTK_WINDOW(window));
+    }
+
+    open_controller();
+    if (controller_poll_source == 0)
+        controller_poll_source = g_timeout_add(16, poll_controller_static, this);
 
     std::thread(&TelloApp::connection_thread_entry, this).detach();
 }
@@ -417,15 +444,27 @@ void TelloApp::on_activate_static(GtkApplication *app, gpointer user_data)
 
 int TelloApp::run(int argc, char *argv[])
 {
+    const Uint32 controller_subsystems = SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS;
+
     instance = this;
     tello.camera_callback = NULL;
     tello.data_callback = NULL;
+
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+    if (SDL_InitSubSystem(controller_subsystems) < 0)
+        fprintf(stderr, "Could not initialize controller support: %s\n", SDL_GetError());
+
     GtkApplication *app = gtk_application_new("io.github.mrzinger.TelloDeck", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(TelloApp::on_activate_static), this);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
     tello.disconnect();
-    close_input();
+    if (controller_poll_source != 0) {
+        g_source_remove(controller_poll_source);
+        controller_poll_source = 0;
+    }
+    close_controller();
+    SDL_QuitSubSystem(controller_subsystems);
     return status;
 }
