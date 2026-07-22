@@ -158,3 +158,12 @@ void VideoOut::set_label(VideoLabels label_id, const char *text)
     sprintf(label, "%s %s", g_def_label[label_id], text);
     g_object_set(G_OBJECT(g_video_lbls[label_id]), "text", label, NULL);
 }
+
+void VideoOut::set_font(const char *font)
+{
+    if (font == NULL || font[0] == '\0') return;
+    for (int i = 0; i < MAX_LBL; ++i) {
+        if (g_video_lbls[i] != NULL)
+            g_object_set(G_OBJECT(g_video_lbls[i]), "font-desc", font, NULL);
+    }
+}

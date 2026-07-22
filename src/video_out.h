@@ -19,6 +19,7 @@ public:
 
     GtkWidget *init_video_screen();
     void set_label(VideoLabels label_id, const char *text);
+    void set_font(const char *font);
     void start_video();
 
 private:

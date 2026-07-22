@@ -8,6 +8,7 @@
 #include <gst/gst.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <string>
 #include "socket_wrapper.h"
 
 class TelloApp {
@@ -33,6 +34,7 @@ private:
     GtkWidget *buttons[MAX_BUTTONS];
     GtkWidget *infolabel;
     GtkWidget *main_window;
+    GtkWidget *settings_window;
     pid_t pid1;
     pid_t pid2;
     int button_amount;
@@ -54,6 +56,7 @@ private:
     float targetPosition_z;
     float targetDirection[2];
     float targetDistance;
+    std::string overlay_font;
 
     void controller_button(SDL_GameControllerButton button);
     void controller_axis(SDL_GameControllerAxis axis, Sint16 value);
@@ -68,6 +71,14 @@ private:
     static void button_callback_static(GtkWidget *widget, gpointer ptr);
     void button_callback(GtkWidget *widget, long id);
     void toggle_button(GtkWidget *widget, int value);
+
+    void load_settings();
+    void save_settings() const;
+    void show_settings();
+    static void settings_button_callback_static(GtkWidget *widget, gpointer ptr);
+    static void font_changed_static(GtkFontButton *button, gpointer ptr);
+    void font_changed(GtkFontButton *button);
+    static void settings_window_destroyed_static(GtkWidget *widget, gpointer ptr);
 
     static gboolean update_gui_static(gpointer ptr);
     gboolean update_gui(long id);
